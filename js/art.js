@@ -107,6 +107,13 @@ export function terrainMaterial(tSlope, tRock, lobes = []) {
         float g7 = smoothstep(-50.,-42.,vW.x)*smoothstep(4.,-6.,vW.x)*smoothstep(-20.,-27.,vW.z)*smoothstep(-70.,-60.,vW.z)*smoothstep(-30.,-42.,cameraPosition.x);
         rim *= 1. - .72*max(c2, g7);
         rim *= 1. - .85*smoothstep(203., 210., vW.x)*smoothstep(244., 238., vW.x); // 大觀廊左坡（原画 IMG_1270）是石绿坡，不罩石青
+        // v44 玉女潭后面的远山（原画 IMG_1266 画顶那几道山）：淡赭绿、向阳面泛黄，几处偏石绿，只有零星山头一块石青
+        float far8 = smoothstep(-72.,-100.,vW.z)*smoothstep(-6.,10.,vW.x)*smoothstep(200.,180.,vW.x);
+        vec3 khaki = mix(vec3(.6,.57,.42), vec3(.81,.76,.57), clamp(lit*1.05 + (n2-.5)*.35, 0., 1.));
+        khaki = mix(khaki, mix(vec3(.5,.57,.45), vec3(.67,.72,.56), clamp(lit*1.05, 0., 1.)), smoothstep(.45,.8,n1)*.6);
+        khaki = mix(khaki, mix(OCHRE_D, OCHRE, lit*.8), gully*.5);
+        col = mix(col, khaki, far8*.88*smoothstep(1.,8.,vRel));
+        rim *= 1. - .75*far8*(1. - smoothstep(.6,.78,n4));
         col = mix(col, blue, rim*.88);
         // 第一章前景（原画 IMG_1271–1267 下缘）：地面是石绿草坡，零星露赭土；坡包身子灰绿，包头罩淡石青，坡脚一圈赭边
         {

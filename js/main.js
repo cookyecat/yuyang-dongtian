@@ -5,7 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PATH, PATH_V29, ZONES, STAGES, PEOPLE, ACTIONS } from './data.js';
 import { MOYA, CAVE, caveLocal, inCave, buildTerrainGeometry, buildTerrainPatch, terrainHeight, surfaceTop, groundHeight, waterLevel, pathAt, slopeAt, blocked, smooth, rand, fbm,
   POND, POOL, STREAM, STREAM2, PADS, COLLIDERS, addSurface, WORLD, distToStream, pondShape, LOBED, FORE, foreMound, MASSIF, QN_STAIRS, massifAt, distToLine, LAYOUT_V21, DGL, daguanWallTop, CH2, PIAO, PANYU, CHAORAN, STAIRS2, MASSIF2, rocks2At, withOldPath, useOldPath, enterV33, exitV33, pathOn, pathV33At, gorge6,
-  CH3, ZEN3, ZEN3B, GY3, POLE3, MOYA3, POOL3, GROTTO3, LONGQIU3, PADS_NOW, POOLW } from './world.js';
+  CH3, ZEN3, ZEN3B, GY3, POLE3, MOYA3, POOL3, GROTTO3, LONGQIU3, PADS_NOW, POOLW, CHUPING, back8 } from './world.js';
 import { PAL, loadTex, terrainMaterial, rockMaterial, cliffMaterial, foliageMaterial, flatMaterial,
   cloudMaterial, leafClumpTexture, tuftTexture, pineTexture, bambooTexture, cloudTexture, createPost } from './art.js';
 import { Kit, COL, buildYuguangGe, YUGUANG, buildHexPavilion, buildHall, buildArchBridge, buildCorridor,
@@ -41,7 +41,7 @@ renderer.info.autoReset = false;
 $('stage').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.3, 1500);
-const post = createPost(renderer, { samples: MOBILE ? 0 : 2, mistSteps: MOBILE ? 6 : 11, clouds: MOBILE ? 8 : 12, cloudSteps: MOBILE ? 6 : 8, lights: MOBILE ? 8 : 16 });
+const post = createPost(renderer, { samples: MOBILE ? 0 : 2, mistSteps: MOBILE ? 6 : 11, clouds: MOBILE ? 10 : 16, cloudSteps: MOBILE ? 6 : 8, lights: MOBILE ? 8 : 16 });
 // v38 昼夜：开场是辰时（上午）。链接加 ?h=20 之类可直接从某个时辰开始（测试用）
 const H0 = +(new URLSearchParams(location.search).get('h') ?? 8.5);
 const DN = createDayNight({ post, scene, camera, groundHeight: (x, z) => groundHeight(x, z), MOBILE, hour: isNaN(H0) ? 8.5 : H0 });
@@ -183,8 +183,16 @@ async function tryGLB(url, mesh, onLoad) {
 // 左上山中红楼与石阶
 place(buildHallHD(6, 4, 3, { wall: new THREE.Color('#c25a42') }), -8, -50, 0.35); boxCol(-8, -50, 3.6, 2.6, 0.35);
 place(buildHallHD(3.4, 2.6, 2.4, { wall: new THREE.Color('#d6cbb0') }), -15, -46, 0.6, terrainHeight(-15, -46));
+// v44 初平林（原画 IMG_1266 左上画顶：一片高松，右边一座红墙院落）：红楼后面再往山里，一块台地上
+{
+  const C = CHUPING, ry = 0.3, cs = Math.cos(ry), sn = Math.sin(ry), at = (lx, lz) => [C.x + lx * cs + lz * sn, C.z - lx * sn + lz * cs];
+  const [hx, hz] = at(2.5, -2.2); place(buildHallHD(6.4, 4.2, 3.2, { wall: new THREE.Color('#c25a42') }), hx, hz, ry, C.y); boxCol(hx, hz, 3.8, 2.7, ry);
+  const [wx, wz] = at(2.2, 0.6); place(buildRedCompound(11, 9.5, 2.2), wx, wz, ry, C.y);
+  const [sx, sz] = at(-4.6, 1.6); place(buildHallHD(3.6, 2.8, 2.4, { wall: new THREE.Color('#d6cbb0') }), sx, sz, ry + 0.1, C.y); boxCol(sx, sz, 2.4, 1.9, ry + 0.1);
+}
 const STAIRS = [
   [[3, -15.5], [2, -22], [-1, -30], [-4, -38], [-7, -45.5]],
+  [[-4.5, -53], [-1.5, -58.5], [-5, -64.5], [-1.5, -70.5], [-6, -77], [-3, -84], [-7, -90], [-6.8, -96.5]], // v44 红楼后面接着往上，通到初平林（走得上去）
   ...STAIRS2, // 第二章：磐玉隈、琪樹峡上縹緲亭的两道石阶，琪樹峡里的之字石阶
   QN_STAIRS,
 ];
@@ -1030,6 +1038,31 @@ exitV33();
   // 前景坡包上的灌丛
   for (const [x, z] of [[-273, 1.5], [-266, 4], [-257, 5], [-248, 7], [-242, 8.5], [-214, 10]]) for (let k = 0; k < 3; k++) add('shrub', x + (r() - 0.5) * 4, z + (r() - 0.5) * 3, 0.8 + r() * 0.5);
 }
+// v44 玉女潭后面的群山（IMG_1266）：靈應亭右后那片云海里随手撒的树拿掉（大小置 0，序号不变）；初平林一片高松、山沟里一丛杉、远山上一行行小树
+{
+  for (const t of Object.keys(TREES)) for (const T of TREES[t]) {
+    if (T[4]) continue;
+    if ((T[0] > 78 && T[0] < 112 && T[1] < -36 && T[1] > -110) || (T[0] > -22 && T[0] < 6 && T[1] < -84 && T[1] > -114)) T[2] = 0; // 云海里、初平林院落前
+    else if (T[0] > -30 && T[0] < 92 && T[1] < -70) T[2] *= 0.7; // 原来撒在后山的树抬上了高山，远看要小（原画远山上的树只是几笔）
+  }
+  const r = rand(4404), C = CHUPING, put = (t, x, z, s, tint) => TREES[t].push([x, z, s, r() * 100, 1, tint]);
+  const clear = (x, z, d) => !STAIRS[1].some(([sx, sz]) => Math.hypot(sx - x, sz - z) < d) && Math.hypot(x - C.x - 1, z - C.z) > C.r + 0.5;
+  for (let i = 0, n = 0; i < 400 && n < 15; i++) { // 初平林：台地左边、台地上，细直高松成林
+    const x = C.x - 17 + r() * 13, z = C.z - 8 + r() * 15;
+    if (!clear(x, z, 2.5) || TREES.tallpine.some((T) => T[4] && Math.hypot(T[0] - x, T[1] - z) < 2.6)) continue;
+    put('tallpine', x, z, 1.05 + r() * 0.3, 0.86); n++;
+  }
+  for (let i = 0, n = 0; i < 300 && n < 11; i++) { // 初平林下面山沟里一丛杉（原画红楼左下一片深色杉林）
+    const x = 1 + r() * 10, z = -76 + r() * 14;
+    if (!clear(x, z, 2.2) || slopeAt(x, z) > 1.5) continue;
+    put('fir', x, z, 1.0 + r() * 0.35, 0.8); n++;
+  }
+  for (let i = 0, n = 0; i < 3000 && n < (MOBILE ? 60 : 110); i++) { // 远山：沿山脊、山腰一行行小树
+    const x = 0 + r() * 180, z = -100 - r() * 70;
+    const b = back8(x, z); if (b < 9 || slopeAt(x, z) > 1.25 || fbm(x * 0.05, z * 0.05 + 8) < 0.5) continue;
+    put(r() < 0.55 ? 'pine' : 'broad', x, z, 0.5 + r() * 0.25, 0.82); n++;
+  }
+}
 const foliageMats = [], treeSets = [];
 function plantTrees(type, variants, maps) {
   const list = TREES[type];
@@ -1054,6 +1087,7 @@ function plantTrees(type, variants, maps) {
 }
 // 只把镜头附近、前方的树放进实例缓冲，远处交给绢色雾
 const TREE_R = MOBILE ? 120 : 190;
+let lensK = 0; // v44 竖屏画境的移轴量（见渲染循环）
 let treeAt = new THREE.Vector3(1e9, 0, 0);
 function cullTrees(force) {
   const cp = camera.position;
@@ -1142,7 +1176,9 @@ const CLOUD_L = [];
   // 各区接缝处的云带 + 远景云海
   const r = rand(9);
   // 接缝处的云团往山里推、贴着山坡，不再压在景点上空挡视线
-  for (const sx of [222, 92, -36, -200, -272]) for (let k = 0; k < 6; k++) { const x = sx + (r() - 0.5) * 30, h = r(), z = -45 - r() * 55; L.push([x, terrainHeight(x, z) + 3 + h * 10, z, 18 + r() * 22, 0, sx === -36]); }
+  // v44 玉女潭这道接缝换成原画靈應亭右边的一片云海（随机数照旧取，别处的云不变）：云顶低于后面的山，几个山头从云里冒出来
+  const SEA8 = [[90, 36, -66, 40], [104, 33, -84, 44], [124, 38, -96, 46], [146, 44, -110, 44], [84, 29, -48, 30], [118, 30, -68, 38]];
+  for (const sx of [222, 92, -36, -200, -272]) for (let k = 0; k < 6; k++) { const x = sx + (r() - 0.5) * 30, h = r(), z = -45 - r() * 55, w = 18 + r() * 22; L.push(sx === 92 ? SEA8[k].slice() : [x, terrainHeight(x, z) + 3 + h * 10, z, w, 0, sx === -36]); }
   for (let k = 0; k < 40; k++) { const x = WORLD.x0 + r() * (WORLD.x1 - WORLD.x0); L.push([x, 30 + r() * 30, -90 - r() * 70, 30 + r() * 40]); }
   for (let k = 0; k < 16; k++) { const x = -200 + r() * 160, y = 22 + r() * 16, z = -30 - r() * 60, w = 20 + r() * 20; if (y > terrainHeight(x, z) + 6) L.push([x, y, z, w]); } // 云山仙境的云海（v27 山抬高了，埋进山里的不要）
   // 第二章（v27）：超然亭左边和脚下的云海、琪樹峡左下的一片云（原画 IMG_1263、1264）
@@ -1773,7 +1809,14 @@ function frame() {
   }
   if (state.mode !== 'control') { ui.prompt.hidden = true; }
   // 竖屏时放宽视场角，让横向看到的范围和 16:10 屏幕差不多
-  { const f = camera.fov; if (camera.aspect < 1.3) { const h = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(f) / 2) * 1.6); camera.fov = Math.min(95, THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(h / 2) / camera.aspect))); } camera.updateProjectionMatrix(); camera.fov = f; }
+  // v44 竖屏看画境时，上半截空着一大片天（手机上看玉女潭“单薄”就是这个）：画境里横向少放宽一些（原画对照在竖屏上也是裁中间），
+  // 镜头不转，画面整体往上平移一点（移轴），天和前景各留一些
+  { const f = camera.fov; let T = Math.tan(THREE.MathUtils.degToRad(f) / 2);
+    if (camera.aspect < 1.3) { const h = 2 * Math.atan(T * (1.6 - 0.6 * Math.min(1, lensK / 0.3))); camera.fov = Math.min(95, THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(h / 2) / camera.aspect))); }
+    const Tp = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2), want = state.view && state.mode !== 'fly' && camera.aspect < 1.3 ? 0.3 : 0; // 画境里横向少看一点（原画对照也是裁中间），再上移，天和前景各留一些
+    lensK += (want - lensK) * Math.min(1, dt * 3); if (Math.abs(want - lensK) < 1e-3) lensK = want;
+    camera.updateProjectionMatrix(); camera.fov = f;
+    if (lensK > 1e-4) { camera.projectionMatrix.elements[9] -= lensK; camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert(); } }
   // —— NPC、动画 ——
   for (const f of figs.values()) {
     updateNPC(f, dt);
