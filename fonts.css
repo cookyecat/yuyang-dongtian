@@ -1,3 +1,5 @@
+@font-face{font-family:'YY Sig';font-style:normal;font-weight:400;font-display:block;src:url(fonts/LXGWWenKaiTC-sig.woff2) format('woff2');} /* 落款、印章用：霞鹜文楷 TC，只含落款用字 */
+@font-face{font-family:'YY Sig';font-style:normal;font-weight:400;font-display:block;src:url(fonts/LXGWWenKaiTC-sig.woff2) format('woff2');} /* 落款、印章用：霞鹜文楷 TC，只含落款用字 */
 /* 子集化字体（只含本作用到的约 1400 字），SIL Open Font License 1.1 */
 @font-face{font-family:'Ma Shan Zheng';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/MaShanZheng-400.woff2) format('woff2');}
 @font-face{font-family:'Noto Serif SC';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/NotoSerifSC-400.woff2) format('woff2');}

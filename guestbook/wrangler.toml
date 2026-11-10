@@ -1,0 +1,19 @@
+# 题名壁后端：Cloudflare Worker + D1。部署步骤见 README.md
+name = "yuyang-guestbook"
+main = "src/worker.js"
+compatibility_date = "2024-11-01"
+# 绑自己的子域名（shenshou.chat 要在同一个 Cloudflare 账号里）。确认后去掉下一行开头的 #
+# routes = [{ pattern = "gb.shenshou.chat", custom_domain = true }]
+
+[vars]
+# 允许哪些网页来题名（逗号分隔）。本机 localhost 预览总是允许
+ALLOWED_ORIGINS = "https://art.starverse.chat,https://cookyecat.github.io"
+# 1 = 先审后刻：新题名先藏起来，你在 /admin 里点「显示」才上墙；0 = 直接上墙
+MODERATE = "0"
+# 每天全站最多收多少条（防刷屏）
+DAILY_CAP = "500"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "yuyang-guestbook"
+database_id = "把 wrangler d1 create 输出的 database_id 贴在这里"

@@ -5,16 +5,31 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>玉阳洞天游园</title>
 <script>try { window.__rockWorker = new Worker("js/rockworker.js", { type: "module" }); } catch (e) {} /* v42 先把算石头的后台线程建起来，等 main.js 交清单 */</script>
-<meta name="description" content="据仇英（款）《玉阳洞天图卷》复原的青绿山水 3D 场景：在浏览器里自由游览画中景致，接管画中人物，与他人互动，看昼夜流转。">
+<meta name="description" content="据仇英（款）《玉阳洞天图卷》复原的青绿山水 3D 场景：在浏览器里自由游览画中景致，接管画中人物，与他人互动，看昼夜流转。李揚（YANG LI）与 Claude 同制。">
+<meta name="author" content="YANG LI with Claude">
+<link rel="author" href="https://github.com/cookyecat">
+<link rel="me" href="https://github.com/cookyecat">
+<link rel="me" href="https://x.com/myannli">
+<!-- 题名壁后端地址（Cloudflare Worker，见 guestbook/README.md）。留空时题名壁显示「不日开放」 -->
+<meta name="yy-guestbook" content="">
 <meta name="theme-color" content="#151b1c">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='4' width='56' height='56' rx='6' fill='%23ece2c9' stroke='%23b6452f' stroke-width='5'/%3E%3Ctext x='32' y='44' font-size='30' text-anchor='middle' fill='%23b6452f' font-family='serif'%3E玉%3C/text%3E%3C/svg%3E">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="玉阳洞天游园">
 <meta property="og:title" content="玉阳洞天游园 · 走进仇英青绿山水">
-<meta property="og:description" content="据仇英（款）《玉阳洞天图卷》复原的青绿山水 3D 场景：在浏览器里自由游览画中景致，接管画中人物，与他人互动，看昼夜流转。">
+<meta property="og:description" content="据仇英（款）《玉阳洞天图卷》复原的青绿山水 3D 场景，在浏览器里自由游览、接管画中人物、看昼夜流转。YANG LI 与 Claude 同制。">
 <meta property="og:url" content="https://art.starverse.chat/">
-<meta property="og:image" content="https://art.starverse.chat/">
+<meta property="og:image" content="https://art.starverse.chat/cover.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="玉阳洞天游园：青绿山水中的玉女潭，右下角有作者落款和朱印">
+<meta property="og:locale" content="zh_CN">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://art.starverse.chat/">
+<meta name="twitter:title" content="玉阳洞天游园 · 走进仇英青绿山水">
+<meta name="twitter:description" content="据仇英（款）《玉阳洞天图卷》复原的青绿山水 3D 场景。YANG LI 与 Claude 同制。">
+<meta name="twitter:image" content="https://art.starverse.chat/cover.jpg">
+<meta name="twitter:creator" content="@myannli">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"VisualArtwork","name":"玉阳洞天游园","url":"https://art.starverse.chat/","image":"https://art.starverse.chat/cover.jpg","description":"据仇英（款）《玉阳洞天图卷》复原、可自由游览的青绿山水 3D 场景","artMedium":"WebGL","creator":[{"@type":"Person","name":"YANG LI","alternateName":"李揚","sameAs":["https://github.com/cookyecat","https://x.com/myannli"]},{"@type":"SoftwareApplication","name":"Claude"}],"isBasedOn":{"@type":"VisualArtwork","name":"玉阳洞天图卷","creator":{"@type":"Person","name":"仇英（款）"}},"inLanguage":"zh-CN"}</script>
 <link rel="modulepreload" href="./vendor/three/build/three.module.js">
 <link rel="stylesheet" href="fonts.css">
 <style>
@@ -22,6 +37,7 @@
   --lacquer:#151b1c; --silk:#ece2c9; --silk-dim:#b8ad93; --shiqing:#4f86ad; --shilv:#79b393; --zhu:#b6452f; --ink:#2a2620;
   --panel:rgba(21,27,28,.78);
   --f-brush:"Ma Shan Zheng","STKaiti","KaiTi","Kaiti SC",serif;
+  --f-sig:"YY Sig","Kaiti TC","BiauKai","DFKai-SB","KaiTi",serif;
   --f-body:"Noto Serif SC","Songti SC","SimSun",serif;
   color-scheme:dark;
 }
@@ -162,8 +178,71 @@ body.ready #veil{opacity:0;}
   #banner span{font-size:34px;}
   #hint{bottom:calc(8px + env(safe-area-inset-bottom,0px));}
 }
+
+/* v43 署名：载入时的落款、常驻朱印、跋、题名壁 */
+#veil .kuan{position:absolute;z-index:1;left:max(7vw,24px);bottom:max(9vh,40px);display:flex;flex-direction:column;align-items:center;gap:10px;opacity:0;animation:kuanIn 1.8s .6s ease forwards;}
+#veil .kuan span{writing-mode:vertical-rl;font-family:var(--f-sig);font-size:clamp(20px,2.3vw,30px);letter-spacing:.14em;color:#2a2620;text-shadow:0 0 14px rgba(236,226,201,.95),0 0 3px rgba(236,226,201,.9);}
+@keyframes kuanIn{to{opacity:1}}
+.yin{display:grid;grid-template-rows:1fr 1fr;place-items:center;width:var(--s,40px);height:var(--s,40px);background:#b23a26;color:#f3e7cf;font:normal calc(var(--s,40px)*.44)/1 var(--f-sig);border-radius:3px;box-shadow:inset 0 0 0 2px rgba(243,231,207,.25),0 0 0 1px rgba(178,58,38,.5);padding:2px 0;}
+#aseal{position:fixed;z-index:6;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:8px;background:none;border:0;padding:0;cursor:pointer;--s:34px;}
+#aseal .yin{transition:transform .2s;}
+#aseal:hover .yin{transform:rotate(-4deg) scale(1.06);}
+#aseal em{font-style:normal;font-size:12px;letter-spacing:.08em;color:#f3ead4;background:rgba(21,27,28,.55);padding:3px 8px;border-radius:3px;opacity:0;transform:translateX(-4px);transition:.2s;white-space:nowrap;}
+#aseal:hover em,#aseal:focus-visible em{opacity:1;transform:none;}
+.paper{position:fixed;inset:0;z-index:11;display:grid;place-items:center;background:rgba(21,27,28,.55);padding:16px;}
+.paper > div{position:relative;width:min(560px,100%);max-height:calc(100% - 8px);overflow:auto;color:var(--ink);border-radius:3px;padding:26px 30px 22px;box-shadow:0 22px 60px rgba(0,0,0,.45);user-select:text;-webkit-user-select:text;
+  background:radial-gradient(ellipse at 30% 20%,rgba(255,250,236,.65),transparent 60%),radial-gradient(ellipse at 80% 90%,rgba(196,176,132,.25),transparent 60%) #efe6cf;}
+.paper.in > div{animation:unroll .55s cubic-bezier(.2,.8,.2,1);}
+@keyframes unroll{from{opacity:0;clip-path:inset(0 0 0 100%)}to{opacity:1;clip-path:inset(0 0 0 0)}}
+.paper .close{position:absolute;top:8px;right:8px;background:none;border:0;font-size:24px;color:var(--ink);cursor:pointer;line-height:1;padding:4px 8px;}
+.paper h2{font-family:var(--f-brush);font-weight:400;font-size:42px;line-height:1;margin:0 0 14px;letter-spacing:.1em;}
+.paper p{font-size:15px;line-height:1.95;margin:0 0 10px;}
+.paper a{color:#8f2f1f;text-decoration:none;border-bottom:1px solid rgba(143,47,31,.35);}
+.paper a:hover{border-bottom-color:#8f2f1f;}
+#ba .who{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:14px;margin:16px 0 6px;padding:14px 0 4px;border-top:1px solid rgba(42,38,32,.18);}
+#ba .who dt{color:#7a6f5c;letter-spacing:.12em;}
+#ba .who dd{margin:0;}
+#ba .sig{display:flex;align-items:flex-end;justify-content:flex-end;gap:12px;margin-top:6px;}
+#ba .sig span{writing-mode:vertical-rl;font-family:var(--f-sig);font-size:22px;letter-spacing:.1em;}
+@media (min-width:641px){#ba .sig{margin-top:-48px;}}
+.paper .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+.paper .row button,#tbForm button{background:var(--ink);color:var(--silk);border:0;border-radius:3px;padding:8px 16px;cursor:pointer;font-family:var(--f-brush);font-size:18px;}
+.paper .row button.alt{background:transparent;color:var(--ink);border:1px solid rgba(42,38,32,.35);}
+#tibi > div{width:min(760px,100%);}
+#tbList{display:flex;flex-direction:row-reverse;gap:6px;overflow-x:auto;padding:14px 10px;min-height:250px;border-radius:2px;margin:6px 0 14px;
+  background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(0,0,0,.08)),radial-gradient(ellipse at 20% 30%,rgba(255,255,255,.15),transparent 50%) #a3aba0;box-shadow:inset 0 0 30px rgba(30,40,35,.35);scrollbar-width:thin;}
+.tb-col{writing-mode:vertical-rl;display:flex;flex-direction:column;align-items:flex-start;gap:6px;flex:0 0 auto;padding:0 4px;color:#1f1c17;}
+/* 名字一个字一行地排（不靠竖排字体，系统缺竖排字形时也不会躺倒） */
+.tb-col b:not(.lat),.tb-col i:not(.lat){writing-mode:horizontal-tb;width:1.08em;word-break:break-all;text-align:center;}
+.tb-col b{font:400 24px/1.1 "STKaiti","KaiTi","Kaiti SC",var(--f-brush);letter-spacing:.06em;text-shadow:1px 1px 0 rgba(255,250,235,.3);}
+.tb-col i{font:normal 14px/1.3 "STKaiti","KaiTi","Kaiti SC",var(--f-body);opacity:.85;}
+.tb-col span{font-size:12px;opacity:.75;letter-spacing:.04em;}
+.tb-empty{writing-mode:vertical-rl;font-family:var(--f-brush);font-size:22px;color:#2a2620;opacity:.65;margin:0 auto;}
+#tbForm{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;align-items:end;}
+#tbForm label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5b5446;letter-spacing:.06em;}
+#tbForm label.wide{grid-column:1/-1;}
+#tbForm input{font:16px var(--f-body);color:var(--ink);background:rgba(255,252,242,.7);border:1px solid rgba(42,38,32,.3);border-radius:3px;padding:7px 9px;user-select:text;-webkit-user-select:text;}
+#tbForm input:focus{outline:2px solid rgba(63,122,92,.5);border-color:#3f7a5c;}
+#tbForm .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;}
+#tbForm .go2{grid-column:1/-1;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+#tbForm.off input,#tbForm.off button{opacity:.45;pointer-events:none;}
+#tbMsg{font-size:13.5px;color:#3f6a4f;}
+.tb-note{font-size:12px !important;color:#7a6f5c;margin:10px 0 0 !important;line-height:1.7 !important;}
+.by .sigl{color:var(--silk);}
+.by a{color:var(--silk);text-decoration:none;border-bottom:1px solid rgba(236,226,201,.35);cursor:pointer;}
+#card .cr{font-size:13px;color:#5b5446;}
+#card .cr a{color:#8f2f1f;}
+#card .acts button.x{background:#7a3a2c;}
+@media (pointer:coarse){#aseal{top:calc(132px + env(safe-area-inset-top,0px));bottom:auto;--s:30px;} #aseal em{display:none;}} /* 手机左下是摇杆区，朱印挪到左上题名下面 */
+@media (max-width:640px){
+  #ba .sig span{writing-mode:horizontal-tb;font-size:18px;}
+  .paper > div{padding:22px 18px 18px;}
+  .paper h2{font-size:34px;}
+  #tbForm{grid-template-columns:1fr;}
+  #tbList{min-height:210px;}
+}
 #dbg{position:fixed;z-index:20;left:8px;bottom:8px;font:12px monospace;background:#000a;padding:3px 6px;}
-@media (prefers-reduced-motion:reduce){#banner.show{animation-duration:.01s}#card{animation:none}#veil div{animation:none}}
+@media (prefers-reduced-motion:reduce){#banner.show{animation-duration:.01s}#card{animation:none}#veil div{animation:none}.paper.in > div{animation:none}#veil .kuan{animation-duration:.01s}}
 </style>
 <link rel="preload" href="assets/world_bake.txt" as="fetch" crossorigin>
 <script type="importmap">
@@ -175,7 +254,7 @@ body.ready #veil{opacity:0;}
 </head>
 <body>
 <div id="stage" aria-label="玉阳洞天 3D 场景"></div>
-<div id="veil" aria-hidden="true"><div></div></div>
+<div id="veil" aria-hidden="true"><div></div><p class="kuan"><span>丙午初冬 李揚與Claude同製</span><i class="yin" style="--s:44px"><b>李</b><b>揚</b></i></p></div>
 <div id="overlay"><img id="ovImg" alt="原画对照"></div>
 <div id="labels"></div>
 <div id="tag" hidden></div>
@@ -187,6 +266,7 @@ body.ready #veil{opacity:0;}
     <div id="stageName"></div></div>
 </div>
 <div id="who" hidden></div>
+<button id="aseal" title="作者 · 跋" aria-label="作者信息（跋）"><i class="yin"><b>李</b><b>揚</b></i><em>李揚 与 Claude 同制 · 点开看跋</em></button>
 
 <div id="tools">
   <button id="btnMap" title="地图（Tab）">地图 <span class="n" id="journalCount">0/13</span></button>
@@ -237,6 +317,8 @@ body.ready #veil{opacity:0;}
   <ul><li>WASD 或方向键移动，按住鼠标拖动转向</li><li>Q / E 下降、上升，Shift 加速，滚轮调速度</li><li>Tab 打开游线图，V 飞到最近景点的画境视角，可拖滑块对照原画</li><li>T 拨到下一个时辰（晨、午、昏、夜），右上角时辰按钮可细调；一日 24 分钟</li></ul>
   <h4>人物</h4>
   <ul><li>点人物：镜头推近，看介绍</li><li>F 接管：WASD 行走，拖动绕看，滚轮远近，点地面自动走过去</li><li>走到别人身边按 E：交谈、作揖、同行、邀坐</li><li>点水面投石，走近仙鹤会惊飞</li><li>夜里各殿亭檐下点起灯笼；接管的人手里提一盏灯</li><li>Esc 一层层退回</li></ul>
+  <h4>作者与题名壁</h4>
+  <ul><li>角落的朱印「李揚」：点开看跋，作者与 GitHub、X</li><li>卷尾四陽洞外的峡谷尽头：崖上有作者题刻，北壁是题名壁，点一下或走近按 E 就能留名</li><li>峡口坐着一位写生的画师，接管游人走过去可以和他聊几句</li></ul>
   <h4>手机</h4>
   <ul><li>左下按住出摇杆，右侧拖动转向，双指上下拖动升降</li></ul>
   <button class="go" id="helpClose">知道了</button>
@@ -246,6 +328,7 @@ body.ready #veil{opacity:0;}
   <h1>玉阳洞天</h1>
   <p class="by">据仇英（款）《玉阳洞天图卷》复原的 3D 场景 · 天津博物馆藏<br>第一章精修：金晶巖 → 大觀廊 → 林泉雅集 → 玉女潭；其余各区仍是灰盒</p>
   <p class="by" style="font-size:12px;margin-top:-4px">原画照片摄于博物馆展厅，仅供学习与非商业展示 · 渲染：three.js</p>
+  <p class="by" style="margin-top:-6px"><span class="sigl">李揚 与 Claude 同制</span> · <a href="#" data-open-ba>跋</a> · <a href="https://github.com/cookyecat" target="_blank" rel="noopener">GitHub</a> · <a href="https://x.com/myannli" target="_blank" rel="noopener">X</a></p>
   <ul>
     <li>全卷六区连成一张地图，从卷首金晶巖一路走到卷尾四陽洞</li>
     <li>第一章按原画细做：金晶巖岩洞、大觀廊院落、梅竹隩草亭、流觴嶼竹林、玉樹湍古树、玉女潭</li>
@@ -254,6 +337,35 @@ body.ready #veil{opacity:0;}
   <button class="go" id="go">入 画</button><button class="go alt" id="goHead">从卷首走起</button>
   <span id="loading">正在铺绢…</span>
 </div>
+
+<div id="ba" class="paper" hidden role="dialog" aria-label="跋：作者信息"><div>
+  <button class="close" id="baClose" aria-label="关闭">×</button>
+  <h2>跋</h2>
+  <p>《玉阳洞天图卷》旧传明代仇英所作，今藏天津博物馆。卷中金晶巖、大觀廊、玉女潭、超然亭、龍湫、四陽洞，自右而左一路展开，移步换景。</p>
+  <p>我们以展厅里拍下的十三帧为底本，在浏览器里一山一石、一屋一人地把它搭成可以走进去的青绿山水：可行，可望，可游，可居。原画接缝处看不到的地方，是按画意补出来的；哪里不像，欢迎指正。</p>
+  <dl class="who">
+    <dt>制作</dt><dd>李揚 YANG LI 与 Claude</dd>
+    <dt>GitHub</dt><dd><a href="https://github.com/cookyecat" target="_blank" rel="noopener">github.com/cookyecat</a></dd>
+    <dt>X</dt><dd><a href="https://x.com/myannli" target="_blank" rel="noopener">@myannli</a></dd>
+  </dl>
+  <div class="row"><button id="baWall">去题名壁留名</button><button id="baGo" class="alt">到卷尾看题刻</button></div>
+  <div class="sig"><span>丙午初冬 李揚 識</span><i class="yin" style="--s:46px"><b>李</b><b>揚</b></i></div>
+</div></div>
+
+<div id="tibi" class="paper" hidden role="dialog" aria-label="题名壁"><div>
+  <button class="close" id="tbClose" aria-label="关闭">×</button>
+  <h2>题名壁</h2>
+  <p style="font-size:14px;margin:0">古人游山，爱在石壁上留名。走到这里的朋友，也请留下名字：会刻在卷尾四陽洞外的峡壁上，后来的游人都看得到。</p>
+  <div id="tbList" aria-live="polite"></div>
+  <form id="tbForm" autocomplete="off">
+    <label>名字<input id="tbName" maxlength="12" required placeholder="如：张三"></label>
+    <label>来自（可不填）<input id="tbPlace" maxlength="10" placeholder="如：杭州"></label>
+    <label class="wide">留一句（可不填）<input id="tbText" maxlength="20" placeholder="二十字以内"></label>
+    <input id="tbHp" class="hp" tabindex="-1" aria-hidden="true" name="website">
+    <div class="go2"><button type="submit">题上石壁</button><span id="tbMsg"></span></div>
+  </form>
+  <p class="tb-note">请勿留电话、网址等联系方式；不雅的字句会被拦下。<a href="#" id="tbBa">看跋</a> · <a href="#" id="tbGo">到卷尾看题名壁</a></p>
+</div></div>
 <div id="dbg" hidden></div>
 <script type="module" src="js/main.js"></script>
 </body>

@@ -20,6 +20,7 @@ import { Birds } from './birds.js';
 import { createFarTrees } from './fartrees.js';
 import { buildRocks2, placeBlock, stoneFigureGeometry, craggyRockGeometry, primeRock, ROCK_KEYS } from './zone2.js';
 import { createDayNight, shichen, phaseName } from './daynight.js';
+import { buildCreditSite, initCreditUI, END } from './credit.js';
 import { buildCave, buildRedCompound, buildOpenPavilion, buildSlab, buildPalaceTerrace, buildPalaceStair, buildSlopeWall, buildStrawHut, buildMassif, buildStoneBridge, stoneBridgeDeck } from './zone1.js';
 
 const $ = (id) => document.getElementById(id);
@@ -1214,6 +1215,8 @@ const boat2 = new THREE.Group();
 const cranes = [new Crane(108, -2, { seed: 1 }), new Crane(113, 1, { seed: 2 })];
 cranes.forEach((c) => scene.add(c.root));
 const birds = new Birds(scene, terrainHeight, { mobile: MOBILE });
+// v43 卷尾峡谷：作者题刻、游人题名壁、写生的画师（见 credit.js）
+const credit = buildCreditSite({ scene, groundHeight, rockMat: rockMaterial(tex.rock, tex.cliff, { grey: true }), flat, Kit, COL, Figure, figs, boxCol, addLamp: (p, k) => DN.addLamp(p, k) });
 
 // ---------- 状态 ----------
 const state = {
@@ -1271,6 +1274,8 @@ function openCard(f) {
   ui.cBody.innerHTML = c.body.map((p) => `<p>${p}</p>`).join('');
   ui.cTip.textContent = c.tip || ''; ui.cTip.hidden = !c.tip;
   ui.bTake.hidden = !f.def.control; ui.bBorrow.hidden = !f.def.borrow;
+  ui.card.querySelectorAll('.acts .x').forEach((b) => b.remove());
+  for (const [label, act] of c.extra || []) { const b = document.createElement('button'); b.className = 'x'; b.textContent = label; b.onclick = () => (act === 'ba' ? creditUI.openBa() : creditUI.openWall()); ui.card.querySelector('.acts').append(b); }
   const photo = STAGES.find((S) => S.id === f.def.stage)?.photo;
   const img = c.img ? A + c.img : photo ? `${A}painting_${photo}.jpg` : '';
   $('cImg').src = img; $('cImg').hidden = !img; $('cImg').classList.toggle('cut', !!c.img);
@@ -1389,13 +1394,14 @@ function showLine() {
   $('dNext').textContent = D.i < D.f.def.lines.length - 1 ? (MOBILE ? '点此继续' : 'E / 点击 继续') : (MOBILE ? '点此结束' : 'E / 点击 结束');
   D.f.play('talk', 2.4); sayTimer = 0;
 }
-function nextLine() { const D = state.dialog; if (!D) { closeDialog(); return; } D.i++; if (D.i >= D.f.def.lines.length) closeDialog(); else showLine(); }
+function nextLine() { const D = state.dialog; if (!D) { closeDialog(); return; } D.i++; if (D.i >= D.f.def.lines.length) { closeDialog(); if (D.f.def.after === 'ba') creditUI.openBa(); } else showLine(); }
 function closeDialog() { state.dialog = null; ui.dialog.hidden = true; }
 
 function interactKey() {
   if (state.dialog) { nextLine(); return; }
   if (state.menu) { closeMenu(); return; }
   if (state.near) openMenu();
+  else if (state.site) state.site === 'ba' ? creditUI.openBa() : creditUI.openWall();
 }
 
 // —— 发现景点 ——
@@ -1482,6 +1488,7 @@ addEventListener('keydown', (e) => {
   if (state.menu && /^[1-4]$/.test(k)) { doAction(ACTIONS[+k - 1].id); return; }
   keys.add(k);
   if (k === 'escape') {
+    if (creditUI.close()) return;
     if (mapOpen) return toggleMap(false);
     if (state.menu) return closeMenu();
     if (state.dialog || !ui.dialog.hidden) return closeDialog();
@@ -1510,6 +1517,12 @@ function pick(cx, cy) {
   const hit = ray.intersectObjects(proxies, false)[0];
   return hit ? hit.object.userData.fig : null;
 }
+function creditPick(cx, cy) { // 卷尾题刻、题名壁：点一下就看
+  if (camera.position.distanceTo(credit.moya.rock.position) > 90) return null;
+  ndc.set((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+  const h = ray.intersectObjects(credit.pickables, false)[0];
+  return h && h.distance < 60 ? h.object.userData.credit : null;
+}
 function groundPick(cx, cy) {
   ndc.set((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
   const o = ray.ray.origin, d = ray.ray.direction; let prev = 0;
@@ -1525,6 +1538,7 @@ function onClick(cx, cy) {
   if (state.mode === 'fly') return;
   const f = pick(cx, cy);
   if (f) { if (state.mode === 'control' && state.ctrl === f) return; focusFigure(f); return; }
+  const cs = creditPick(cx, cy); if (cs) { cs === 'ba' ? creditUI.openBa() : creditUI.openWall(); return; }
   const g = groundPick(cx, cy);
   // 投石：点水面出涟漪；点鹤：惊飞
   if (g && g.water) { ripple(g.p.x, g.p.z); if (Math.hypot(g.p.x - 108, g.p.z) < 12) cranes.forEach((c) => c.startle()); return; }
@@ -1596,8 +1610,9 @@ function hover(x, y) {
   if (performance.now() - hoverT < 60 || state.mode === 'fly') return; hoverT = performance.now();
   const f = pick(x, y);
   if (hovered && hovered !== f && hovered !== state.focus) hovered.hl = 0;
-  hovered = f; cv.style.cursor = f ? 'pointer' : '';
+  hovered = f; const cs = f ? null : creditPick(x, y); cv.style.cursor = f || cs ? 'pointer' : '';
   if (f && f !== state.ctrl) { f.hl = 0.7; ui.tag.textContent = f.def.name; ui.tag.hidden = false; ui.tag.style.left = x + 'px'; ui.tag.style.top = y - 18 + 'px'; }
+  else if (cs) { ui.tag.textContent = cs === 'ba' ? '作者题刻 · 点开看跋' : '题名壁 · 点开留名'; ui.tag.hidden = false; ui.tag.style.left = x + 'px'; ui.tag.style.top = y - 18 + 'px'; }
   else ui.tag.hidden = true;
 }
 
@@ -1743,9 +1758,11 @@ function frame() {
     // 走近他人
     const n = nearestNPC();
     if (n !== state.near) { state.near = n; if (!n) closeMenu(); }
-    ui.prompt.hidden = !n || state.menu || !!state.dialog;
+    state.site = n ? null : credit.nearSite(f.root.position);
+    ui.prompt.hidden = (!n && !state.site) || state.menu || !!state.dialog;
     if (n) ui.prompt.innerHTML = MOBILE ? `点“互动”与${n.def.name}` : `<kbd>E</kbd> 与${n.def.name}互动`;
-    $('mAct').disabled = !n && !state.dialog;
+    else if (state.site) ui.prompt.innerHTML = (MOBILE ? '点“互动”' : '<kbd>E</kbd> ') + (state.site === 'ba' ? '读崖上题刻' : '在题名壁留名');
+    $('mAct').disabled = !n && !state.site && !state.dialog;
     // 惊鹤
     for (const c of cranes) if (c.root.position.distanceTo(f.root.position) < 3.5) c.startle();
     const tgt = f.root.position.clone().add(new THREE.Vector3(0, 1.35 * f.root.scale.y, 0));
@@ -1822,6 +1839,15 @@ setCam(new THREE.Vector3(...startStage.view.pos), new THREE.Vector3(...startStag
 camera.fov = startStage.view.fov; camera.updateProjectionMatrix(); applyFreeCam();
 setHint();
 $('go').onclick = () => { $('intro').hidden = true; };
+// v43 署名：常驻朱印点开见跋；跋里可去卷尾、去题名壁。题名取回来后刻到卷尾北壁上
+function flyEnd() {
+  if (state.mode === 'control') releaseControl(false);
+  if (state.focus) { state.focus.hl = 0; state.focus.paused = false; state.focus = null; closeCard(); }
+  $('intro').hidden = true; hideOverlay();
+  const v = END.view, pos = new THREE.Vector3(...v.pos), at = new THREE.Vector3(...v.at);
+  flyTo(pos, at, v.fov, () => { setCam(pos, at); state.mode = 'free'; setHint(); }, 3);
+}
+const creditUI = initCreditUI({ onFlyEnd: flyEnd, onWallItems: (items) => credit.setWall(items) });
 $('goHead').onclick = () => { $('intro').hidden = true; const S = STAGES[0]; paintView(S); };
 document.fonts && document.fonts.ready.then(() => {});
 DN.finalize({ pond: POND });
@@ -1832,4 +1858,4 @@ requestAnimationFrame(frame);
 requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.add('ready'))); // 第一帧画出后，揭开开场的原画底
 console.info(`[bake] used ${BAKE.used}, computed ${BAKE.missed}, ready ${performance.now().toFixed(0)}ms`);
 if (BAKE.mode === 'record') { bakeList(MOBILE ? 'rocks-m' : 'rocks-d', ROCK_KEYS); window.__bakeText = bakeOutput(); }
-window.__game = { DN, setHour: (h) => { DN.setHour(h); updateClockUI(); }, post, birds, doAction: (a) => doAction(a), borrowEyes, exitBorrow, keys, joy, terrain, scene, treeSets, state, camera, figs, STAGES, setCam, applyFreeCam, paintView, focusFigure, takeControl, groundHeight };
+window.__game = { credit, creditUI, flyEnd, DN, setHour: (h) => { DN.setHour(h); updateClockUI(); }, post, birds, doAction: (a) => doAction(a), borrowEyes, exitBorrow, keys, joy, terrain, scene, treeSets, state, camera, figs, STAGES, setCam, applyFreeCam, paintView, focusFigure, takeControl, groundHeight };
