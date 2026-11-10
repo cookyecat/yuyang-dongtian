@@ -593,6 +593,33 @@ export const FORE = [
   // 凝玉亭·玉樹湍（IMG_1267）：左下大坡、鶴巢后一个缓包，右下溪边一个包
   m(97, 10, 8, 4, 20), m(104, 19, 9, 3, 21), m(124, 15, 8, 3, 22),
 ];
+// v44 玉女潭后面的群山（Yang 2026-11-11：比原画单薄，原画潭后层层高山直到画顶，右边云海上还有山）。
+// 照原画 IMG_1266 在画境镜头里反投影定位：左上一大团石青山、山间一块台地是初平林、正后一道中山、最后一道高山横过画顶，右上云海后面一组高山。
+// 只加在 v21 布局以外（撒树、布局照旧按原地形算），x < −34 渐隐，第二章的地形不动。
+// 原画远山是宽厚的圆山头一个挨一个（宽是高的三四倍），不是尖峰：每个山头是一只圆顶 [x, z, 半径, 高]，几个山头软最大接成一道山
+export const BACK8 = [
+  { lobes: [[-26, -80, 28, 28], [-18, -66, 16, 13], [-34, -97, 28, 27]] },                      // 左上石青大山（初平林左边）
+  { lobes: [[12, -108, 30, 22], [38, -115, 32, 27], [62, -117, 28, 23], [84, -106, 24, 15]] },                    // 潭后中间一道山
+  { lobes: [[0, -150, 40, 40], [30, -157, 44, 47], [62, -160, 40, 43], [94, -154, 40, 24]] },                     // 最后一道高山，横过画顶
+  { lobes: [[118, -148, 36, 40], [146, -154, 40, 50], [172, -142, 30, 36]] },                                     // 右上云海后面的高山
+  { lobes: [[114, -116, 20, 15], [130, -126, 18, 13]] },                                                          // 云海里冒出的山头
+];
+const dome8 = (d) => (d >= 1 ? 0 : Math.pow(1 - d * d, 1.4));
+function range8(x, z, L, k = 0.16) {
+  let acc = 0, n = 0;
+  for (const [lx, lz, R, H] of L.lobes) { const d = Math.hypot(x - lx, z - lz) / R; if (d < 1) { acc += Math.exp(k * H * dome8(d)); n++; } }
+  return n ? Math.log(acc - n + 1) / k : 0;
+}
+export const CHUPING = { x: -9, z: -101, r: 8, y: 63, b: 9 }; // 初平林台地（红楼院落在台地右后，松林在左）
+PADS_NOW.push(CHUPING);
+export function back8(x, z) {
+  if (x < -50 || x > 200 || z > -48) return 0;
+  let h = 0; for (const L of BACK8) h += range8(x, z, L);
+  if (h <= 0) return 0;
+  // 顺坡而下的褶（原画远山一道道的皴褶）：沿坡向的脊状噪声，山腰最明显
+  h *= 0.9 + 0.22 * ridged(x * 0.045 + 3, z * 0.03 - 5);
+  return h * smooth(-46, -32, x) * smooth(-48, -64, z);
+}
 export const lawnWeight = (x) => smooth(88, 100, x) + smooth(-34, -42, x) * smooth(-206, -196, x) + smooth(-200, -208, x) * smooth(-292, -284, x); // v39 第三章也是石绿坡 // 第一章（玉女潭以东）地面按原画铺石绿草坡
 // 坡包高出地面多少（着色、种灌丛都用它）
 export function foreMound(x, z) { if (x < 88 || z < 0) return 0; return lobedHeight(x, z, FORE) * smooth(3.5, 8, Math.abs(z - pathAt(x).z)); }
@@ -677,6 +704,7 @@ export function terrainBase(x, z) {
   const seam = S6.old || V29.on || LAYOUT_V21.on ? 0 : Math.exp(-1.6 * 1.6 * 2.2);
   for (const M of MOUNDS) { const r = Math.hypot(x - M.x, z - M.z) / M.r; if (r < 1.6) h += M.h * (Math.exp(-r * r * 2.2) - seam * smooth(1.45, 1.6, r)); }
   if (z < 0) h += lobedHeight(x, z);
+  if (!LAYOUT_V21.on) h += back8(x, z); // v44 玉女潭后面的群山
   h += foreMound(x, z);
   if (!LAYOUT_V21.on && CH2(x)) h += ch2Hills(x, z, h);
   if (!LAYOUT_V21.on && CH3(x)) {
