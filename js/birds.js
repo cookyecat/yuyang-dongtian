@@ -90,9 +90,71 @@ function craneFlyMaterial(freq, amp) {
   });
 }
 
+// 飞行高度场。先在 step 米的粗网格上取地形最高（每个节点取周围 ±step 内地形网格顶点的最大值，
+// 所以双线性插值出来的值一定不低于渲染出来的地面），再做锥形膨胀 H(p)=max_q(g(q)−k·|p−q|)
+// （八邻域正反两遍扫描），最后模糊几遍抹平折角；返回双线性插值的查询函数。
+// grid = 地形网格 { y(i,j), nx, nz, x0, z0, step }；没有时退回逐点取 ground。
+function heightField(ground, grid, B, step, k, blur) {
+  const nx = Math.ceil((B.x1 - B.x0) / step) + 1, nz = Math.ceil((B.z1 - B.z0) / step) + 1;
+  let H = new Float32Array(nx * nz);
+  if (grid) {
+    const r = Math.ceil(step / grid.step);
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      const ci = Math.round((B.x0 + i * step - grid.x0) / grid.step), cj = Math.round((B.z0 + j * step - grid.z0) / grid.step);
+      let m = -1e9;
+      for (let b = Math.max(0, cj - r); b <= Math.min(grid.nz - 1, cj + r); b++) for (let a = Math.max(0, ci - r); a <= Math.min(grid.nx - 1, ci + r); a++) m = Math.max(m, grid.y(a, b));
+      H[j * nx + i] = m;
+    }
+  } else {
+    const h = step * 0.5;
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      const x = B.x0 + i * step, z = B.z0 + j * step; let m = -1e9;
+      for (let b = -2; b <= 2; b++) for (let a = -2; a <= 2; a++) m = Math.max(m, ground(x + a * h, z + b * h));
+      H[j * nx + i] = m;
+    }
+  }
+  const d1 = k * step, d2 = k * step * Math.SQRT2;
+  for (let pass = 0; pass < 2; pass++) {
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      const c = j * nx + i; let v = H[c];
+      if (i > 0) v = Math.max(v, H[c - 1] - d1);
+      if (j > 0) { v = Math.max(v, H[c - nx] - d1); if (i > 0) v = Math.max(v, H[c - nx - 1] - d2); if (i < nx - 1) v = Math.max(v, H[c - nx + 1] - d2); }
+      H[c] = v;
+    }
+    for (let j = nz - 1; j >= 0; j--) for (let i = nx - 1; i >= 0; i--) {
+      const c = j * nx + i; let v = H[c];
+      if (i < nx - 1) v = Math.max(v, H[c + 1] - d1);
+      if (j < nz - 1) { v = Math.max(v, H[c + nx] - d1); if (i < nx - 1) v = Math.max(v, H[c + nx + 1] - d2); if (i > 0) v = Math.max(v, H[c + nx - 1] - d2); }
+      H[c] = v;
+    }
+  }
+  // 3×3 模糊抹平折角。斜率不超过 k，所以每遍最多低下 k·step·√2，逐遍补回，保证不低于地面
+  for (let it = 0; it < blur; it++) {
+    const S = new Float32Array(nx * nz);
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      let s = 0, n = 0;
+      for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const ii = i + a, jj = j + b; if (ii >= 0 && jj >= 0 && ii < nx && jj < nz) { s += H[jj * nx + ii]; n++; } }
+      S[j * nx + i] = s / n + d2;
+    }
+    H = S;
+  }
+  return (x, z) => {
+    const fx = Math.min(nx - 1.001, Math.max(0, (x - B.x0) / step)), fz = Math.min(nz - 1.001, Math.max(0, (z - B.z0) / step));
+    const i = Math.floor(fx), j = Math.floor(fz), u = fx - i, w = fz - j, c = j * nx + i;
+    return (H[c] * (1 - u) + H[c + 1] * u) * (1 - w) + (H[c + nx] * (1 - u) + H[c + nx + 1] * u) * w;
+  };
+}
+
 export class Birds {
-  constructor(scene, ground, { mobile = false } = {}) {
+  constructor(scene, ground, { mobile = false, bounds = null, grid = null } = {}) {
     this.ground = ground;
+    // 飞行高度：原先是“脚下地面 + 固定高度”，鸟群飞过超然亭、二姑峰时会齐刷刷陡降陡升。
+    // 现在先把地形做成一张“护身高度场”（脚下几米内的最高处，永不低于地面），
+    // 再沿每只鸟/每队自己的航线往前后各看若干秒：y = max_τ(护身高(τ) + 离地 − 升降速度×|τ|)，
+    // 于是飞向山头时提前缓缓爬升，飞过后缓缓落下，升降速度有上限，也不会穿山。
+    const tH = performance.now(), B = bounds || { x0: -356, x1: 356, z0: -178, z1: 88 };
+    this.guard = heightField(ground, grid, B, 3, 1.5, 1);
+    console.info(`[birds] height fields ${(performance.now() - tH).toFixed(0)}ms`);
     // 仙鹤：两队，每队五只，人字形
     this.nC = mobile ? 6 : 10;
     const cg = flyingCraneGeometry();
@@ -112,7 +174,19 @@ export class Birds {
     this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.v = new THREE.Vector3(); this.s = new THREE.Vector3(1, 1, 1);
     this.prev = new Map();
   }
+  // 沿航线 pos(τ) 前后看 ±T 秒，取“护身高 + 离地 − rate·|τ|”的最大值
+  aheadY(pos, clear, T, dt, rate) {
+    let y = -1e9;
+    for (let tau = -T; tau <= T + 1e-6; tau += dt) { const [x, z] = pos(tau); y = Math.max(y, this.guard(x, z) + clear - rate * Math.abs(tau)); }
+    return y;
+  }
+  // 再做一点时间上的缓动（镜头跳景时鹤群中心会快速挪动），但不许低于脚下的护身高
+  ease(o, key, target, floor, dt) {
+    const v = o[key] === undefined ? target : o[key] + (target - o[key]) * Math.min(1, dt / 1.5);
+    o[key] = Math.max(v, floor); return o[key];
+  }
   update(t, cam) {
+    const dt = Math.min(0.2, Math.max(0, t - (this.lastT ?? t))); this.lastT = t;
     this.cMat.uniforms.time.value = t; this.sMat.uniforms.time.value = t;
     const up = new THREE.Vector3(0, 1, 0);
     // 鹤群中心慢慢跟着游人走
@@ -123,7 +197,9 @@ export class Birds {
       const a = t * F.w + F.ph, cx = F.c.x + Math.cos(a) * F.R, cz = F.c.z + Math.sin(a) * F.R * 0.5;
       const dir = new THREE.Vector3(-Math.sin(a) * F.R, 0, Math.cos(a) * F.R * 0.5).multiplyScalar(Math.sign(F.w)).normalize();
       const side = new THREE.Vector3().crossVectors(up, dir).normalize();
-      const baseY = Math.max(this.ground(cx, cz) + 24, 36) + Math.sin(t * 0.2 + F.ph) * 4;
+      const at = (tau) => { const b = (t + tau) * F.w + F.ph; return [F.c.x + Math.cos(b) * F.R, F.c.z + Math.sin(b) * F.R * 0.5]; };
+      const want = Math.max(this.aheadY(at, 24, 14, 0.5, 1.6), 36);
+      const baseY = this.ease(F, 'y', want, this.guard(cx, cz) + 16, dt) + Math.sin(t * 0.2 + F.ph) * 4;
       for (let i = 0; i < per && k < this.nC; i++, k++) {
         const row = Math.ceil(i / 2), sgn = i % 2 ? 1 : -1;
         const p = new THREE.Vector3(cx, baseY - row * 0.4, cz).addScaledVector(dir, -row * 2.6).addScaledVector(side, row ? sgn * row * 2.4 : 0);
@@ -141,8 +217,9 @@ export class Birds {
     this.sw.forEach((B, i) => {
       if (!B.o) B.o = new THREE.Vector2(ox, oz);
       B.o.x += (ox - B.o.x) * 0.01; B.o.y += (oz - B.o.y) * 0.01;
-      const x = B.o.x + Math.sin(t * B.fx + B.a) * B.R, z = B.o.y + Math.sin(t * B.fz + B.b) * B.R * 0.7;
-      const y = this.ground(x, z) + B.h + Math.sin(t * 0.7 + i) * 2;
+      const at = (tau) => [B.o.x + Math.sin((t + tau) * B.fx + B.a) * B.R, B.o.y + Math.sin((t + tau) * B.fz + B.b) * B.R * 0.7];
+      const [x, z] = at(0);
+      const y = this.ease(B, 'y', this.aheadY(at, B.h, 4, 0.5, 3), this.guard(x, z) + 3, dt) + Math.sin(t * 0.7 + i) * 2;
       const p = this.v.set(x, y, z), last = this.prev.get(i) || p.clone();
       const d = p.clone().sub(last); if (d.lengthSq() > 1e-6) this.q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d.normalize());
       this.prev.set(i, p.clone());

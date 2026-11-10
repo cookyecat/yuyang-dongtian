@@ -1250,7 +1250,7 @@ const boat2 = new THREE.Group();
 // 仙鹤
 const cranes = [new Crane(108, -2, { seed: 1 }), new Crane(113, 1, { seed: 2 })];
 cranes.forEach((c) => scene.add(c.root));
-const birds = new Birds(scene, terrainHeight, { mobile: MOBILE });
+const birds = new Birds(scene, terrainHeight, { mobile: MOBILE, bounds: WORLD, grid: { y: (i, j) => TGP[(j * TNX + i) * 3 + 1], nx: TNX, nz: TNZ, x0: WORLD.x0, z0: WORLD.z0, step: WORLD.step } });
 // v43 卷尾峡谷：作者题刻、游人题名壁、写生的画师（见 credit.js）
 const credit = buildCreditSite({ scene, groundHeight, rockMat: rockMaterial(tex.rock, tex.cliff, { grey: true }), flat, Kit, COL, Figure, figs, boxCol, addLamp: (p, k) => DN.addLamp(p, k) });
 
