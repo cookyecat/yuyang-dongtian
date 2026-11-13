@@ -152,3 +152,70 @@ export function craggyRockArrays(seed, { res = 22, squat = 0, smoothN = false } 
   }
   return { position: new Float32Array(out), normal: new Float32Array(nrm), aH: new Float32Array(aH), aM: new Float32Array(aH.length).fill(tone), aO: new Float32Array(aO) };
 }
+
+// v47 大块山石（水犀洞双头峰、四陽洞洞后的大石台等）：直接给世界坐标里的距离场 sdf(x, y, z)，在盒子 B=[x0,x1,y0,y1,z0,z1] 里
+// 以 cell 米一格用 surface nets 取面（同嶙峋石）。aH 取 (y − hy[0]) / (hy[1] − hy[0])；aM 取 tone（数或 (x,y,z)=>数）；aO 取距离场遮蔽（occ 米一步）
+// field(n, fill)：取格点距离场的数组（默认现场算；要预存可以换成 bakedArray）。遮蔽按格点场三线性取值，不再调 sdf
+export function sdfArrays(sdf, B, cell, { hy = [B[2], B[3]], tone = 0.78, occ = 0.35, field = (n, fill) => { const a = new Float32Array(n); fill(a); return a; } } = {}) {
+  const [X0, X1, Y0, Y1, Z0, Z1] = B, nx = Math.max(2, Math.round((X1 - X0) / cell)), ny = Math.max(2, Math.round((Y1 - Y0) / cell)), nz = Math.max(2, Math.round((Z1 - Z0) / cell));
+  const dx = (X1 - X0) / nx, dy = (Y1 - Y0) / ny, dz = (Z1 - Z0) / nz, sx = nx + 1, sy = ny + 1;
+  const F = field(sx * sy * (nz + 1), (F) => { for (let k = 0; k <= nz; k++) for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) F[(k * sy + j) * sx + i] = sdf(X0 + i * dx, Y0 + j * dy, Z0 + k * dz); });
+  const at = (x, y, z) => { // 格点场三线性取值（盒外取边上的值）
+    const fi = Math.min(nx - 1e-4, Math.max(0, (x - X0) / dx)), fj = Math.min(ny - 1e-4, Math.max(0, (y - Y0) / dy)), fk = Math.min(nz - 1e-4, Math.max(0, (z - Z0) / dz));
+    const i = Math.floor(fi), j = Math.floor(fj), k = Math.floor(fk), u = fi - i, v = fj - j, w = fk - k, I = (a, b, c) => F[((k + c) * sy + j + b) * sx + i + a];
+    const L = (a, b, t) => a + (b - a) * t;
+    return L(L(L(I(0, 0, 0), I(1, 0, 0), u), L(I(0, 1, 0), I(1, 1, 0), u), v), L(L(I(0, 0, 1), I(1, 0, 1), u), L(I(0, 1, 1), I(1, 1, 1), u), v), w);
+  };
+  const V = [], G = [], cell2 = new Int32Array(nx * ny * nz).fill(-1);
+  const E = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]];
+  const cv = new Float32Array(8);
+  for (let k = 0; k < nz; k++) for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    let neg = 0;
+    for (let c = 0; c < 8; c++) { cv[c] = F[((k + (c >> 2)) * sy + j + ((c >> 1) & 1)) * sx + i + (c & 1)]; if (cv[c] < 0) neg++; }
+    if (neg === 0 || neg === 8) continue;
+    let px = 0, py = 0, pz = 0, m = 0;
+    for (const [a, b] of E) {
+      if ((cv[a] < 0) === (cv[b] < 0)) continue;
+      const t = cv[a] / (cv[a] - cv[b]);
+      px += (a & 1) + ((b & 1) - (a & 1)) * t; py += ((a >> 1) & 1) + (((b >> 1) & 1) - ((a >> 1) & 1)) * t; pz += (a >> 2) + ((b >> 2) - (a >> 2)) * t; m++;
+    }
+    cell2[(k * ny + j) * nx + i] = V.length / 3;
+    const u = px / m, w2 = py / m, t = pz / m;
+    G.push(((1 - w2) * (1 - t) * (cv[1] - cv[0]) + w2 * (1 - t) * (cv[3] - cv[2]) + (1 - w2) * t * (cv[5] - cv[4]) + w2 * t * (cv[7] - cv[6])) / dx,
+      ((1 - u) * (1 - t) * (cv[2] - cv[0]) + u * (1 - t) * (cv[3] - cv[1]) + (1 - u) * t * (cv[6] - cv[4]) + u * t * (cv[7] - cv[5])) / dy,
+      ((1 - u) * (1 - w2) * (cv[4] - cv[0]) + u * (1 - w2) * (cv[5] - cv[1]) + (1 - u) * w2 * (cv[6] - cv[2]) + u * w2 * (cv[7] - cv[3])) / dz);
+    V.push(X0 + (i + u) * dx, Y0 + (j + w2) * dy, Z0 + (k + t) * dz);
+  }
+  const Q = [], C = (i, j, k) => (i < 0 || j < 0 || k < 0 || i >= nx || j >= ny || k >= nz ? -1 : cell2[(k * ny + j) * nx + i]);
+  for (let k = 0; k <= nz; k++) for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) {
+    const f0 = F[(k * sy + j) * sx + i];
+    if (i < nx) { const f1 = F[(k * sy + j) * sx + i + 1]; if ((f0 < 0) !== (f1 < 0)) { const q = [C(i, j - 1, k - 1), C(i, j, k - 1), C(i, j, k), C(i, j - 1, k)]; if (q.every((v) => v >= 0)) Q.push(f0 < 0 ? q : q.slice().reverse()); } }
+    if (j < ny) { const f1 = F[(k * sy + j + 1) * sx + i]; if ((f0 < 0) !== (f1 < 0)) { const q = [C(i - 1, j, k - 1), C(i - 1, j, k), C(i, j, k), C(i, j, k - 1)]; if (q.every((v) => v >= 0)) Q.push(f0 < 0 ? q : q.slice().reverse()); } }
+    if (k < nz) { const f1 = F[((k + 1) * sy + j) * sx + i]; if ((f0 < 0) !== (f1 < 0)) { const q = [C(i - 1, j - 1, k), C(i, j - 1, k), C(i, j, k), C(i - 1, j, k)]; if (q.every((v) => v >= 0)) Q.push(f0 < 0 ? q : q.slice().reverse()); } }
+  }
+  const nv = V.length / 3, N = new Float32Array(nv * 3), O = new Float32Array(nv);
+  for (let v = 0; v < nv; v++) {
+    const x = V[v * 3], y = V[v * 3 + 1], z = V[v * 3 + 2];
+    let gx = G[v * 3], gy = G[v * 3 + 1], gz = G[v * 3 + 2]; const gl = Math.hypot(gx, gy, gz) || 1; gx /= gl; gy /= gl; gz /= gl;
+    N[v * 3] = gx; N[v * 3 + 1] = gy; N[v * 3 + 2] = gz;
+    let o = 0; for (let s = 1; s <= 3; s++) { const hh = occ * s; o += (hh - Math.max(at(x + gx * hh, y + gy * hh, z + gz * hh), 0)) / hh / (1 << s); }
+    O[v] = Math.min(1, Math.max(0, o * 1.6 - 0.1));
+  }
+  { const nb = Array.from({ length: nv }, () => []);
+    for (const q of Q) for (let i = 0; i < 4; i++) nb[q[i]].push(q[(i + 1) % 4], q[(i + 3) % 4]);
+    const O2 = O.slice(); for (let v = 0; v < nv; v++) { let a = O[v] * 2, n = 2; for (const u of nb[v]) { a += O[u]; n++; } O2[v] = a / n; } O.set(O2);
+    const N2 = N.slice(); for (let v = 0; v < nv; v++) { let ax = N[v * 3] * 2, ay = N[v * 3 + 1] * 2, az = N[v * 3 + 2] * 2; for (const u of nb[v]) { ax += N[u * 3]; ay += N[u * 3 + 1]; az += N[u * 3 + 2]; } const l = Math.hypot(ax, ay, az) || 1; N2[v * 3] = ax / l; N2[v * 3 + 1] = ay / l; N2[v * 3 + 2] = az / l; } N.set(N2); }
+  const out = [], nrm = [], aH = [], aM = [], aO = [], tf = typeof tone === 'function' ? tone : () => tone;
+  const put = (v) => { const x = V[v * 3], y = V[v * 3 + 1], z = V[v * 3 + 2]; out.push(x, y, z); nrm.push(N[v * 3], N[v * 3 + 1], N[v * 3 + 2]); aH.push(Math.min(1, Math.max(0, (y - hy[0]) / (hy[1] - hy[0])))); aM.push(tf(x, y, z)); aO.push(O[v]); };
+  for (const [a, b, c, d] of Q) {
+    const d1 = Math.hypot(V[a * 3] - V[c * 3], V[a * 3 + 1] - V[c * 3 + 1], V[a * 3 + 2] - V[c * 3 + 2]), d2 = Math.hypot(V[b * 3] - V[d * 3], V[b * 3 + 1] - V[d * 3 + 1], V[b * 3 + 2] - V[d * 3 + 2]);
+    const T2 = d1 <= d2 ? [[a, b, c], [a, c, d]] : [[a, b, d], [b, c, d]];
+    for (const [p0, p1, p2] of T2) {
+      const ux = V[p1 * 3] - V[p0 * 3], uy = V[p1 * 3 + 1] - V[p0 * 3 + 1], uz = V[p1 * 3 + 2] - V[p0 * 3 + 2], wx = V[p2 * 3] - V[p0 * 3], wy = V[p2 * 3 + 1] - V[p0 * 3 + 1], wz = V[p2 * 3 + 2] - V[p0 * 3 + 2];
+      const fx = uy * wz - uz * wy, fy = uz * wx - ux * wz, fz = ux * wy - uy * wx;
+      if (fx * (N[p0 * 3] + N[p1 * 3] + N[p2 * 3]) + fy * (N[p0 * 3 + 1] + N[p1 * 3 + 1] + N[p2 * 3 + 1]) + fz * (N[p0 * 3 + 2] + N[p1 * 3 + 2] + N[p2 * 3 + 2]) >= 0) { put(p0); put(p1); put(p2); } else { put(p0); put(p2); put(p1); }
+    }
+  }
+  return { position: new Float32Array(out), normal: new Float32Array(nrm), aH: new Float32Array(aH), aM: new Float32Array(aM), aO: new Float32Array(aO) };
+}
+export { vn3 };

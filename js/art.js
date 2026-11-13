@@ -293,7 +293,7 @@ export function rockMaterial(tRock, tCliff, { crest = false, niche = false, jade
           vec3 bS = mix(vec3(.38,.39,.36), vec3(.6,.6,.54), bl);
           blue = mix(blue, bS, smoothstep(.69, .71, vM)*smoothstep(.81, .79, vM)*smoothstep(-77., -74., vW.x)*.9);
           // v46 卷尾（IMG_1260 水犀洞、1258 四陽洞）：山石是淡石绿灰（vM≈.78），向阳面泛浅，背面、脚下透赭
-          vec3 bC = mix(mix(vec3(.42,.47,.41), vec3(.66,.69,.58), bl), vec3(.56,.5,.38), smoothstep(.35, .05, vH)*.55 + smoothstep(.2, .8, n.x)*.3);
+          vec3 bC = mix(mix(vec3(.42,.47,.41), vec3(.66,.69,.58), bl), vec3(.56,.5,.38), smoothstep(.35, .05, vH)*.55 + smoothstep(.1, .7, n.x)*.5);
           blue = mix(blue, bC, smoothstep(.76, .77, vM)*smoothstep(.8, .79, vM)*smoothstep(-284., -290., vW.x));
           blue = mix(blue, mix(vec3(.47,.36,.25), vec3(.75,.62,.45), bl), smoothstep(.815, .825, vM)*smoothstep(.845, .835, vM)*smoothstep(-284., -290., vW.x)); // 四陽洞的暖赭岩脚（vM≈.83）
         #endif
@@ -371,7 +371,11 @@ export function rockMaterial(tRock, tCliff, { crest = false, niche = false, jade
           float steep = 1. - smoothstep(.45, .8, up);
           vec2 hz = normalize(vec2(n.z, -n.x) + 1e-4); float hp = dot(vW.xz, hz);
           float hemp = smoothstep(.66, .93, vnoise(vec2(hp*3.,  vW.y*.32 + vnoise(vec2(hp*.5, vW.y*.1))*2.)));
-          col = mix(col, col*.76, hemp*steep*.35);
+          float hk = .35;
+          #ifdef PAINT
+            hk += .35*smoothstep(.765, .77, vM)*smoothstep(.85, .84, vM)*smoothstep(-286., -292., vW.x); // v47 卷尾的山石皴线重一些（原画水犀洞峰上满是竖皴）
+          #endif
+          col = mix(col, col*.76, hemp*steep*hk);
         }
         #endif
         #ifdef PAINT
