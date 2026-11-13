@@ -5,7 +5,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PATH, PATH_V29, ZONES, STAGES, PEOPLE, ACTIONS } from './data.js';
 import { MOYA, CAVE, caveLocal, inCave, buildTerrainGeometry, buildTerrainPatch, terrainHeight, surfaceTop, groundHeight, waterLevel, pathAt, slopeAt, blocked, smooth, rand, fbm,
   POND, POOL, STREAM, STREAM2, PADS, COLLIDERS, addSurface, WORLD, distToStream, pondShape, LOBED, FORE, foreMound, MASSIF, QN_STAIRS, massifAt, distToLine, LAYOUT_V21, DGL, daguanWallTop, CH2, PIAO, PANYU, CHAORAN, STAIRS2, MASSIF2, rocks2At, withOldPath, useOldPath, enterV33, exitV33, pathOn, pathV33At, gorge6,
-  CH3, ZEN3, ZEN3B, GY3, POLE3, MOYA3, POOL3, GROTTO3, LONGQIU3, PADS_NOW, POOLW, CHUPING, back8 } from './world.js';
+  CH3, ZEN3, ZEN3B, GY3, POLE3, MOYA3, POOL3, GROTTO3, LONGQIU3, PADS_NOW, POOLW, CHUPING, back8,
+  CH4, XI4, PEAK4, SIYANG4, QD4, STREAM4 } from './world.js';
 import { PAL, loadTex, terrainMaterial, rockMaterial, cliffMaterial, foliageMaterial, flatMaterial,
   cloudMaterial, leafClumpTexture, tuftTexture, pineTexture, bambooTexture, cloudTexture, createPost } from './art.js';
 import { Kit, COL, buildYuguangGe, YUGUANG, buildHexPavilion, buildHall, buildArchBridge, buildCorridor,
@@ -550,11 +551,7 @@ let moyaCliff = null;
     for (const [lx, lz, hw, hd] of [[0, -21, 23, 7.5], [-18, -7, 5, 7], [18, -7, 5, 7]]) { const [wx, wz] = toW(lx, lz); boxCol(wx, wz, hw, hd, B.ry); }
   }
 // 龍湫（v39 起按原画做成岩洞，见下面 GROTTO3 一段）
-// 水犀洞尖峨岩峰
-spire(-299, -30, 5, 30, 96, { top: 0.12, lean: 0.1 }); spire(-288, -28, 3, 16, 97);
-// 四陽洞
-spire(-342, -24, 5, 18, 98, { top: 0.6 }); spire(-330, -26, 4.5, 16, 99, { top: 0.6 });
-{ const g = boulderGeometry(13); g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(-336, 14, -25), new THREE.Quaternion(), new THREE.Vector3(9, 3.5, 5))); spires.push(g); }
+// 水犀洞、四陽洞（v46 起按原画另搭，见下面 CH4 一段）
 // 玉女潭：崖顶石青巨石与潭边、坡上的石块（细分精模）
 {
   const ROCKS = [[22, -27, 3.2], [30, -29, 2.4], [44, -27, 3.6], [52, -22, 2.6], [17, -23, 2.2], [40, -31, 2], [35, -26.5, 1.6], [9, -24, 1.8], [57, -26, 2.2],
@@ -679,18 +676,85 @@ const WF = (() => {
   const W = (v) => new THREE.Vector3(X, v.y, -v.z);
   return { fall, top: W(path[0].p), bottom: W(last) };
 })();
+// v46 卷尾·洞壑（IMG_1260 水犀洞、IMG_1258 四陽洞）：照原画在画境镜头里反投影摆（data.js S02、S01 的 view）
+// 石色 aM：.78 淡石绿灰（水犀洞尖峰、四陽洞一带的山石，见 art.js），.95 赭灰，.45–.5 石青
+{
+  const H = (x, z) => terrainHeight(x, z), RES = MOBILE ? 14 : 20;
+  // w、d 是石头的实际宽、深（米）。嶙峋石、枕石的单位几何半宽约 0.8–1，所以传给 placeBlock 时先乘 0.55
+  const blk = (x, z, w, d, y0, top, o = {}) => {
+    if (o.col !== 0 && !o.keepY) for (const a of [-0.5, 0, 0.5]) for (const b of [-0.5, 0, 0.5]) y0 = Math.min(y0, H(x + a * w, z + b * d) - 0.5);
+    placeBlock(PAN7, H, x, z, w * 0.55, d * 0.55, top - y0, o.ry ?? 0, o.seed ?? Math.round(x * 17 - z * 9), { res: RES, craggy: true, ...o, y0, aO: true }); if (o.col !== 0) circleCol(x, z, o.col ?? Math.min(w, d) * 0.4); };
+  const CEL = 0.78, OCH = 0.95, BL = 0.45;
+  // —— 水犀洞：一座双头尖峰，正面一道深龛，龛里石台上两人对坐；右肩一面赭色崖（原画 1260 u .35–.56）——
+  const P = PEAK4;
+  blk(P.x - 3.0, P.z + 0.6, 5.8, 6, 6, 21.6, { tone: CEL, ry: 0.15, col: 2.6, craggy: false, pillow: true, taper: 0.42, slant: 0.1, seed: 4591 });
+  blk(P.x + 1.8, P.z - 0.2, 5.4, 6, 6, 22.7, { tone: CEL, ry: -0.1, col: 2.4, craggy: false, pillow: true, taper: 0.38, slant: 0.12, seed: 4592 });
+  blk(P.x - 0.8, P.z - 0.6, 4.4, 4.6, 12, 20.4, { tone: CEL, ry: 0.3, col: 0, seed: 4593 });
+  blk(P.x + 5.2, P.z + 0.4, 3.0, 5, 6, 18.4, { tone: OCH, ry: -0.3, col: 1.5 });
+  blk(P.x - 5.2, P.z + 2.8, 3.4, 3.8, 6, 16.9, { tone: CEL, ry: 0.4, col: 1.6 });
+  blk(P.x - 1.8, P.z + 4.4, 2.6, 2.4, 6, 15.4, { tone: CEL, ry: 0.2, col: 1.1 });
+  blk(P.x + 3.3, P.z + 4.3, 2.6, 2.4, 6, 16.2, { tone: CEL, ry: -0.25, col: 1.1 });
+  blk(P.x + 0.4, P.z + 2.2, 3.4, 2.4, 9, 19.5, { tone: CEL, ry: 0, col: 0 });            // 龛后壁
+  blk(XI4.x, XI4.z - 0.2, 3.0, 2.4, 6, XI4.y, { tone: 0.9, ry: 0.05, seed: 4601, col: 0 }); // 龛里的石台
+  blk(XI4.x - 0.2, XI4.z + 1.3, 2.0, 1.6, 6, XI4.y - 2.0, { tone: CEL, ry: 0.3, seed: 4602, col: 0.8 });
+  blk(XI4.x + 0.5, XI4.z + 2.4, 1.6, 1.4, 6, XI4.y - 3.4, { tone: CEL, ry: -0.2, seed: 4603, col: 0.7 });
+  addSurface((x, z) => (Math.abs(x - XI4.x) < 1.35 && Math.abs(z - XI4.z) < 1.05 ? XI4.y : null), true);
+  { const k = new Kit(), g = new THREE.SphereGeometry(1, 14, 10, 0, Math.PI); g.scale(1.45, 3.0, 0.9); g.rotateY(Math.PI);
+    k.add(g, new THREE.Color('#3d3427'), 0, new THREE.Matrix4().makeTranslation(XI4.x, XI4.y, XI4.z - 0.6)); staticParts.push(k.geometry()); }
+  // 尖峰脚下、左边山梁上、左上赭坡上的石青石（原画一簇簇蓝石）
+  for (const [x, z, w, top, t] of [[-304.9, -19.2, 2.0, 1.9, BL], [-302.8, -13.4, 1.3, 0.9, 0.5], [-303.9, -12.1, 1.0, 0.7, BL], [-296.3, -20.5, 1.6, 1.4, 0.5],
+    [-313.2, -30.2, 2.2, 1.8, BL], [-309.9, -30.8, 2.6, 2.4, 0.5], [-307.2, -27, 1.4, 1.2, BL], [-311.6, -28.4, 1.2, 1.0, 0.5],
+    [-324.6, -22.5, 2.8, 2.5, BL], [-326.8, -22, 2.4, 2.6, 0.5], [-319.9, -22.7, 1.8, 1.6, BL], [-322.4, -20.6, 1.2, 0.9, 0.5],
+    [-296, 11.1, 1.0, 0.5, BL], [-297.3, 9.7, 0.9, 0.4, 0.5], [-291.2, -36, 2.0, 1.5, BL]])
+    blk(x, z, w * 1.15, w, H(x, z) - 0.6, H(x, z) + top, { tone: t, ry: x * 0.7, col: w > 1.2 ? w * 0.7 : 0 });
+  // 左上赭坡上两块高高的石青石（原画 u .22–.33，一高一矮挨着）
+  blk(-317.2, -33, 3.2, 3, H(-317.2, -33) - 0.8, H(-317.2, -33) + 4.7, { tone: BL, ry: 0.3, seed: 4611 });
+  blk(-316.8, -49.1, 3.6, 3.2, H(-316.8, -49.1) - 0.8, H(-316.8, -49.1) + 7.2, { tone: 0.5, ry: -0.2, seed: 4612 });
+  blk(-314.4, -48.4, 2.2, 2, H(-314.4, -48.4) - 0.6, H(-314.4, -48.4) + 4.4, { tone: BL, ry: 0.5, seed: 4613 });
+  // 右下坡里一个赭色小岩洞（原画 u .62–.7、v .72–.8）
+  blk(-291.2, -4.8, 3.0, 2.2, 6, 9.4, { tone: 0.83, ry: 0.1, seed: 4621 });
+  { const k = new Kit(), g = new THREE.SphereGeometry(1, 14, 10); g.scale(0.85, 1.15, 0.35);
+    k.add(g, new THREE.Color('#33291e'), 0, new THREE.Matrix4().makeTranslation(-291.2, H(-291.2, -3.9) + 0.2, -3.95)); staticParts.push(k.geometry()); }
+
+  // —— 四陽洞：赭色岩脚上几孔连着的拱洞，水从洞里一级级跌出来，成一条溪往右下流（原画 1258 中间）——
+  const S = SIYANG4, y = S.y;
+  const WO = 0.83; // 暖赭（四陽洞的岩脚，见 art.js）
+  blk(S.x - 0.3, S.z - 3.0, 12.6, 4.0, y - 1.2, y + 4.4, { tone: WO, ry: -0.05, seed: 4636, keepY: true, col: 0 });            // 洞后岩体（洞口开在它前面）
+  blk(S.x - 6.2, S.z - 1.8, 2.8, 3.2, y - 1.2, y + 3.4, { tone: WO, ry: 0.3, seed: 4631, keepY: true });                       // 两头的岩脚
+  blk(S.x + 5.6, S.z - 1.6, 2.8, 3.0, y - 1.2, y + 3.8, { tone: WO, ry: -0.3, seed: 4634, keepY: true });
+  for (const [dx, sd] of [[-1.75, 4632], [1.35, 4633]]) blk(S.x + dx, S.z - 0.9, 1.0, 1.2, y - 1.0, y + 2.7, { tone: WO, ry: dx * 0.1, seed: sd, keepY: true }); // 洞与洞之间的石柱
+  for (const [dx, w, sd] of [[-3.3, 3.0, 4635], [-0.2, 2.8, 4639], [2.9, 3.0, 4640]])                                              // 每孔洞顶一道拱眉
+    blk(S.x + dx, S.z - 1.1, w, 1.4, y + 2.3, y + 3.3, { tone: WO, ry: dx * 0.08, seed: sd, keepY: true, col: 0 });
+  { const k = new Kit(), dark = new THREE.Color('#2e241a');
+    for (const [dx, w, h] of [[-3.3, 1.3, 2.6], [-0.2, 1.2, 2.8], [2.9, 1.25, 2.5]]) { const g = new THREE.SphereGeometry(1, 16, 12); g.scale(w, h, 0.5);
+      k.add(g, dark, 0, new THREE.Matrix4().makeTranslation(S.x + dx, y - 0.4, S.z - 1.2)); }
+    staticParts.push(k.geometry()); }
+  // 跌水的台阶石：出洞口三级，再缓缓流下去
+  for (const [x, z, w, t, sd] of [[-337.5, -11.7, 1.6, 6.9, 4641], [-335.2, -11.4, 1.4, 6.8, 4642], [-336.9, -9.9, 1.3, 6.3, 4643], [-334.5, -9.4, 1.1, 6.2, 4644], [-335.6, -8.2, 1.2, 5.9, 4645], [-333.4, -7.0, 0.9, 5.7, 4646],
+    [-331.6, -4.6, 0.8, 5.6, 4647], [-329.4, -1.4, 0.9, 5.6, 4648], [-331.4, -2.0, 1.0, 6.2, 4649]])
+    blk(x, z, w, w * 0.8, t - 1, t, { tone: x < -333 ? WO : 0.9, ry: x, seed: sd, keepY: true, col: 0 });
+  // 青島磯：溪右一块平坡，坡边几块石青石
+  for (const [x, z, w, t] of [[-329.2, -10.4, 1.6, 1.3], [-328, -8.4, 1.1, 0.8], [-333.8, -5.2, 1.0, 0.6]]) blk(x, z, w * 1.1, w, H(x, z) - 0.5, H(x, z) + t, { tone: x > -333 ? BL : 0.5, ry: x });
+  // 卷尾峡谷的两壁：贴一道赭灰的嶙峋石（地形网格粗，陡壁靠石头遮住），题刻、题名壁、画师四周让开
+  for (const [x, z, w, d, top, sd] of [[-345.6, 0.4, 2.6, 2.0, 10.2, 4651], [-343.4, 0.3, 2.2, 1.8, 10.4, 4652], [-332.4, 0.0, 2.4, 2.0, 10.4, 4653], [-330.3, -0.6, 2.0, 1.8, 9.4, 4654],
+    [-345.8, 7.4, 2.8, 2.0, 12.4, 4655], [-342.6, 7.5, 3.0, 2.0, 13.0, 4656], [-339.3, 7.4, 2.8, 2.0, 12.6, 4657], [-336, 7.5, 3.0, 2.0, 13.0, 4658], [-332.6, 7.4, 2.8, 2.0, 12.4, 4659], [-329.4, 7.3, 2.4, 1.8, 11.2, 4660],
+    [-348.6, 2.2, 2.4, 2.6, 14.4, 4661], [-348.7, 5.6, 2.4, 2.6, 14.8, 4662]])
+    blk(x, z, w, d, 5.2, top, { tone: z > 5 || x < -347 ? 0.78 : WO, ry: x * 0.3, seed: sd, keepY: true, col: 0 });
+  // 北壁背上一块石青石（原画下缘那块）、洞后圆山上几块（原画左中）
+  blk(-341.4, -1.2, 2.6, 1.8, H(-341.4, -1.2) - 0.6, H(-341.4, -1.2) + 0.9, { tone: BL, ry: 0.2, seed: 4671, col: 0 });
+  for (const [x, z, w, t] of [[-345.2, -19.5, 2.2, 1.4], [-341.6, -21.2, 1.4, 0.9], [-330.4, -19.8, 1.8, 1.2]]) blk(x, z, w * 1.1, w, H(x, z) - 0.5, H(x, z) + t, { tone: x < -340 ? 0.5 : BL, ry: x * 0.4 });
+  // 溪横过游线处一块石板桥
+  { const k = new Kit(), yb = pathAt(-326.1).y + 0.12, stone = new THREE.Color('#8a7f69');
+    k.box(6.8, 0.3, 2.3, -326.1, yb - 0.3, pathAt(-326.1).z, stone, 0, 0.12); staticParts.push(k.geometry());
+    addSurface((x, z) => { const c = Math.cos(0.12), s = Math.sin(0.12), lx = (x + 326.1) * c - (z - pathAt(-326.1).z) * s, lz = (x + 326.1) * s + (z - pathAt(-326.1).z) * c; return Math.abs(lx) < 3.4 && Math.abs(lz) < 1.15 ? yb : null; }); }
+  // 溪水（出洞的几级跌水另有台阶石压着）
+  streamBand(STREAM4.map(([x, z, w]) => new THREE.Vector3(x, w, z)), 0.85, (p) => p.y);
+}
 const rockIMs = [];
 const spireMesh = new THREE.Mesh(mergeGeometries(spires), rockMat); scene.add(spireMesh);
 const grey6Mesh = GREY6.length ? new THREE.Mesh(mergeGeometries(GREY6), rockMaterial(tex.rock, tex.cliff, { grey: true })) : null; if (grey6Mesh) scene.add(grey6Mesh); // v34 琪樹峡灰白大方石
 const pan7Mesh = new THREE.Mesh(mergeGeometries(PAN7), rockMaterial(tex.rock, tex.cliff, { paint: true })); scene.add(pan7Mesh); // v36 磐玉隈巨岩
 const blue6Mesh = BLUE6.length ? new THREE.Mesh(mergeGeometries(BLUE6), rockMaterial(tex.rock, tex.cliff, { paint: true })) : null; if (blue6Mesh) scene.add(blue6Mesh); // v35 琪樹峡石青石
-// 洞口：暗色凹面
-{
-  const k = new Kit(), dark = new THREE.Color('#3b3328');
-  const cave = (x, y, z, w, h, ry) => { const g = new THREE.SphereGeometry(1, 16, 10, 0, Math.PI); g.scale(w, h, 1.2); k.add(g, dark, 0, new THREE.Matrix4().makeRotationY(ry).setPosition(x, y, z)); };
-  cave(-336, terrainHeight(-336, -21) + 0.2, -21.8, 2.6, 3, Math.PI); cave(-296.5, 12.2, -23.6, 2.2, 2.4, Math.PI);
-  staticParts.push(k.geometry());
-}
 
 const staticMesh = new THREE.Mesh(mergeGeometries(staticParts), flat); scene.add(staticMesh);
 
@@ -708,7 +772,7 @@ await step('布散石');
     if (x > -40 && x < 95) { if (i % 5 === 0 && s < 1.1 && z > p.z - 40) sliceL[i % 4].push(new THREE.Matrix4().compose(new THREE.Vector3(x, y - s * 0.1, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r() * 6, 0)), new THREE.Vector3(s * 0.8, s * 0.7, s * 0.8))); if (s > 0.8 && d < 30) circleCol(x, z, s * 0.8); continue; }
     const M = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r() * 6, 0)), new THREE.Vector3(s * (1 + r() * 0.4), s, s));
     if (onMassif(x, z)) continue; // 隐春巖石壁上不撒（随机数照常取，别处的石头不变）
-    if (CH2(x) || CH3(x)) continue; // 第二章（v27）、第三章（v39）石头按原画另摆
+    if (CH2(x) || CH3(x) || CH4(x)) continue; // 第二章（v27）、第三章（v39）、第四章（v46）石头按原画另摆
     if (x > 205 && x < 266 && z > -62 && z < -2) continue; // 大觀廊院子和左坡不撒石青石（原画只在右边山上和右下角有）
     if (x > 212 && x < 292 && z > -92 && z < 5) { LAYOUT_V21.on = true; const h0 = terrainHeight(x, z); LAYOUT_V21.on = false; if (Math.abs(h0 - y - s * 0.25) > 0.4) continue; } // 大觀廊 v25 起削过、填过的地上不放（会悬空）
     lists[i % 4].push(M);
@@ -1062,6 +1126,44 @@ exitV33();
     const b = back8(x, z); if (b < 9 || slopeAt(x, z) > 1.25 || fbm(x * 0.05, z * 0.05 + 8) < 0.5) continue;
     put(r() < 0.55 ? 'pine' : 'broad', x, z, 0.5 + r() * 0.25, 0.82); n++;
   }
+}
+// v46 卷尾（IMG_1260、1258）：原来随手撒的树置 0（序号不变，别处的树一棵不动），按原画补在列表末尾
+{
+  for (const t of Object.keys(TREES)) for (const T of TREES[t]) if (T[0] < -290.5 && !T[4]) T[2] = 0;
+  const r = rand(4646), add = (t, x, z, s, tint = 0.8, y) => { const T = [x, z, s, r() * 100, 1, tint]; if (y != null) T.push(y); TREES[t].push(T); };
+  const clearOf = (x, z) => Math.abs(z - pathAt(x).z) > 3 && Math.hypot(x - PEAK4.x, z - PEAK4.z) > 7.5 && Math.hypot(x - SIYANG4.x, z - SIYANG4.z) > 5.5 && !(x < -326 && z > -1 && z < 9.5);
+  const scatter = (t, n, x0, x1, z0, z1, s0, s1, tint, gap = 2.4) => { const P = [];
+    for (let i = 0; i < 600 && P.length < n; i++) { const x = x0 + r() * (x1 - x0), z = z0 + r() * (z1 - z0);
+      if (!clearOf(x, z) || P.some(([a, b]) => Math.hypot(a - x, b - z) < gap)) continue; P.push([x, z]); add(t, x, z, s0 + r() * (s1 - s0), tint); } };
+  // —— 水犀洞（1260）——
+  // 左上：山梁后面赭坡上一片松林（原画左上角），林下几根光干
+  scatter('pine', MOBILE ? 10 : 16, -330, -315, -38, -26, 0.6, 0.85, 0.8, 2.2);
+  for (const [x, z] of [[-323.6, -25.6], [-321.1, -25.4], [-319.9, -26.2]]) add('tallpine', x, z, 0.75, 0.82);
+  // 远处赭坡上一行行小松、杂树（原画上缘）
+  scatter('pine', MOBILE ? 10 : 18, -330, -292, -78, -44, 0.55, 0.8, 0.84, 4);
+  scatter('broad', MOBILE ? 5 : 9, -312, -292, -60, -36, 0.6, 0.85, 0.82, 4);
+  // 尖峰右边一株巨大的杂树（树冠盖过半幅画，接到龍湫左边的树林）
+  add('old', -292.4, -13.6, 2.5, 0.72); add('broad', -291.4, -22.4, 2.1, 0.74);
+  // 左边山梁上一溜灌丛、矮松（原画梁上的点叶）
+  for (const [x, z] of [[-322, -27.8], [-318.6, -26.2], [-315.4, -24.6], [-312.6, -23], [-310, -21.6], [-326, -24.5], [-307.8, -19.8]]) add(r() < 0.4 ? 'dwarfpine' : 'shrub', x, z, 0.8 + r() * 0.4, 0.72);
+  for (const [x, z] of [[-313, -16.4], [-309.4, -14.2], [-318.2, -18.4], [-316, -12.6], [-321.5, -15.6], [-311.6, -10.8], [-306.6, -11.4], [-323.4, -19.6]]) add(r() < 0.3 ? 'dwarfpine' : 'shrub', x, z, 0.75 + r() * 0.4, 0.7); // 山梁脚下一路的灌丛
+  add('broad', -317.4, -14.2, 0.85, 0.7); add('pine', -314.6, -19.8, 0.9, 0.78); add('broad', -321.6, -21.2, 0.8, 0.72);
+  // 尖峰脚下、龛下石缝两边的灌丛
+  for (const [x, z] of [[-305.6, -18], [-298.4, -18.4], [-307.5, -21.2], [-295.6, -19.4], [-302.2, -16.4]]) add('shrub', x, z, 0.7 + r() * 0.3, 0.7);
+  // 左下：游线前坡上几株浓密的墨绿杂树（原画左下角），中间几丛矮灌木和一株光枝小树
+  add('broad', -308.8, 5.4, 0.62, 0.62); add('old', -305.4, 6.2, 0.56, 0.64); add('shrub', -302.4, 5.6, 0.9, 0.64); add('shrub', -310.6, 4.8, 0.8, 0.64);
+  for (const [x, z] of [[-299.4, -4.2], [-297.6, -5.4], [-300.8, -5.8], [-295.2, 6.6], [-293.4, 5.8]]) add('shrub', x, z, 0.85 + r() * 0.3, 0.68);
+  // —— 四陽洞（1258）——
+  add('pine', -350.6, -3.2, 1.45, 0.8); add('pine', -352.4, -9.2, 1.3, 0.8);   // 左边两株高松
+  add('dwarfpine', -343.6, 8.7, 0.7, 0.66); add('dwarfpine', -335.4, 8.6, 0.6, 0.66); add('shrub', -346.2, 8.8, 0.7, 0.66); // 镜头脚下坡沿的蕨丛（原画下缘）
+  scatter('broad', MOBILE ? 4 : 7, -346, -327, -30, -21, 0.6, 0.85, 0.78, 3.2); scatter('shrub', MOBILE ? 5 : 9, -346, -327, -24, -17, 0.6, 0.9, 0.72, 2.4); // 洞后圆山上的杂树、灌丛
+  add('old', -349.6, -12, 1.3, 0.78);                                              // 坡上一株虬曲的老树
+  for (const [x, z] of [[-347.7, -15.5], [-345.6, -15.2], [-343.5, -14.9], [-341.6, -13.4], [-340.2, -11.6], [-344.6, -12.6]]) add(r() < 0.35 ? 'dwarfpine' : 'shrub', x, z, 0.85 + r() * 0.35, 0.68); // 洞左一溜灌丛
+  add('old', -326.2, -6.2, 1.7, 0.72); add('broad', -325.2, -12.2, 1.3, 0.72);  // 右边一株大杂树（原画右半幅的树冠）
+  for (const [x, z] of [[-330, -9.8], [-332.6, -6.6], [-329.4, -6.8]]) add('shrub', x, z, 0.6 + r() * 0.2, 0.7); // 青島磯边的草丛
+  scatter('pine', MOBILE ? 6 : 10, -334, -318, -32, -22, 0.75, 1.0, 0.82, 2.8);   // 右上坡上的松
+  scatter('broad', MOBILE ? 3 : 5, -354, -346, -28, -18, 0.8, 1.0, 0.8, 3);       // 左上
+  scatter('pine', MOBILE ? 6 : 10, -356, -330, -70, -40, 0.55, 0.8, 0.84, 4);     // 远坡
 }
 const foliageMats = [], treeSets = [];
 function plantTrees(type, variants, maps) {
@@ -1443,7 +1545,7 @@ function interactKey() {
 // —— 发现景点 ——
 function checkStage(p) {
   const Z = ZONES.find((Z) => p.x <= Z.x0 && p.x > Z.x1);
-  if (Z && Z !== state.zone) { state.zone = Z; ui.zone.textContent = Z.name; ui.zone.classList.toggle('grey', Z.stage === 'grey'); $('zoneTag').textContent = { grey: '灰盒', slice: 'P1 切片', ch1: '第一章', ch2: '第二章', ch3: '第三章' }[Z.stage]; }
+  if (Z && Z !== state.zone) { state.zone = Z; ui.zone.textContent = Z.name; ui.zone.classList.toggle('grey', Z.stage === 'grey'); $('zoneTag').textContent = { grey: '灰盒', slice: 'P1 切片', ch1: '第一章', ch2: '第二章', ch3: '第三章', ch4: '第四章' }[Z.stage]; }
   let S = null, bd = 1e9;
   for (const s of STAGES) { const d = Math.hypot(p.x - s.x, p.z - s.z); if (d < s.r && d < bd) { bd = d; S = s; } }
   if (S !== state.stage) {
@@ -1901,4 +2003,4 @@ requestAnimationFrame(frame);
 requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.add('ready'))); // 第一帧画出后，揭开开场的原画底
 console.info(`[bake] used ${BAKE.used}, computed ${BAKE.missed}, ready ${performance.now().toFixed(0)}ms`);
 if (BAKE.mode === 'record') { bakeList(MOBILE ? 'rocks-m' : 'rocks-d', ROCK_KEYS); window.__bakeText = bakeOutput(); }
-window.__game = { credit, creditUI, flyEnd, DN, setHour: (h) => { DN.setHour(h); updateClockUI(); }, post, birds, doAction: (a) => doAction(a), borrowEyes, exitBorrow, keys, joy, terrain, scene, treeSets, state, camera, figs, STAGES, setCam, applyFreeCam, paintView, focusFigure, takeControl, groundHeight };
+window.__game = { credit, creditUI, flyEnd, DN, setHour: (h) => { DN.setHour(h); updateClockUI(); }, post, birds, doAction: (a) => doAction(a), borrowEyes, exitBorrow, keys, joy, terrain, scene, treeSets, state, camera, figs, STAGES, setCam, applyFreeCam, paintView, focusFigure, takeControl, groundHeight, moveFigure };

@@ -78,8 +78,8 @@ export const PADS = [
   { x: -162, z: -18, r: 5, y: 30.6, old2: 1 },       // 超然亭
   { x: -218, z: -26, r: 3.5, y: 22, old3: 1 },       // 观音龛
   { x: -204, z: -11, r: 5, y: 14.6, old3: 1 },       // 禪窩
-  { x: -296, z: -21, r: 4, y: 12 },         // 水犀洞
-  { x: -336, z: -12, r: 6, y: 6.2 },        // 四陽洞前
+  { x: -296, z: -21, r: 4, y: 12, old4: 1 },         // 水犀洞（v46 起按原画另搭，见 CH4）
+  { x: -336, z: -12, r: 6, y: 6.2, old4: 1 },        // 四陽洞前
 ];
 // 大觀廊（v25，Yang 2026-10-28）：正八边形“八合院”，八条边各一座长屋，正面门屋靠街；院后乱石高台上一座重檐大殿，台前一道宽石阶。
 // x/cz 院子中心，rIn 边屋中线到中心，y 院子地面；高台正面在 tz，宽 tw、深 td、台顶 ty；sw 石阶宽，foot 石阶脚
@@ -306,7 +306,91 @@ export function ch3Ground(x, z, h0) {
   return g;
 }
 export const ch3Blend = (x) => smooth(-202, -209, x) * smooth(-290, -283, x);
-export const PADS_NOW = PADS.filter((P) => !P.old2 && !P.old3).concat(PADS3, [
+
+// ---------- v46 第四章 卷尾·洞壑（S02 水犀洞 IMG_1260、S01 四陽洞 IMG_1258）----------
+// 照原画在画境镜头里反投影定位（data.js S02、S01 的 view）。1260 右边三分之一和 1261 左边重叠（龍湫左边那片杂树、老松已在第三章），
+// 这里只搭 x < −289。1258 和 1260 不重叠，接缝在 x ≈ −323。
+// 卷尾峡谷（v43 作者题刻、题名壁、画师，见 credit.js）位置一点不动：峡底 z 1.5–6.5 仍是游线高；北壁做成原画左下那面大绿坡，南壁在镜头脚下。
+export const CH4 = (x) => x <= -289;
+export const ch4Blend = (x) => smooth(-289, -296, x);
+export const XI4 = { x: -300.4, z: -21.6, y: 12.6 };            // 水犀洞：尖峰半腰龛里的石台（两人对坐）
+export const PEAK4 = { x: -301.2, z: -25.2 };                    // 水犀洞尖峰的中心
+export const SIYANG4 = { x: -336.4, z: -13.2, y: 7.2, hw: 5.6 }; // 四陽洞：洞口中心、洞口地面、半宽
+export const QD4 = { x: -331.2, z: -8.4, y: 6.9 };              // 青島磯：洞右溪边一块平坡
+// 四陽洞流出的溪：[x, z, 水面高]（出洞几级跌水，绕过北壁东头，在 x −326 横过游线往南去）
+export const STREAM4 = [[-336.6, -12.4, 7.0], [-335.9, -10.2, 6.55], [-334.6, -8.0, 6.1], [-332.8, -5.6, 5.85], [-330.6, -3.2, 5.7], [-328.4, -0.6, 5.6], [-326.6, 2.4, 5.5], [-325.6, 5.6, 5.35], [-324.8, 9.5, 5.0], [-324.2, 14, 4.4], [-323.6, 20, 3.6]];
+export function distToStream4(x, z) {
+  let best = 1e9, wl = 0; const S = STREAM4;
+  for (let i = 0; i < S.length - 1; i++) {
+    const [ax, az, aw] = S[i], [bx, bz, bw] = S[i + 1], vx = bx - ax, vz = bz - az, l2 = vx * vx + vz * vz;
+    const t = Math.max(0, Math.min(1, ((x - ax) * vx + (z - az) * vz) / l2)), d = Math.hypot(x - ax - vx * t, z - az - vz * t);
+    if (d < best) { best = d; wl = aw + (bw - aw) * t; }
+  }
+  return { d: best, wl };
+}
+// 圆浑的山头：[x, z, 半径, 高]，几个山头软最大接成一座山（同 v44 的 range8）
+const HILLS4 = [
+  // 水犀洞（1260）：左边一道青绿山梁从左上斜下来接到尖峰脚；尖峰右后一片赭坡（大杂树长在上面）
+  { lobes: [[-323, -29, 8, 3.6], [-317.5, -25.5, 7, 3.2], [-312, -22, 6, 2.2], [-327.5, -23, 6, 2.4], [-316, -18, 6.5, 4.2], [-311, -12.5, 5.5, 3.0], [-306.5, -8.5, 4.5, 2.0], [-319, -17, 6, 2.6]] },
+  { lobes: [[-301.5, -26, 8, 3.2], [-295.5, -27, 7, 4.5], [-291, -24, 6, 3.6]] },
+  // 水犀洞左下：游线前一个低包（原画下缘那片圆浑的绿坡），挡住游线
+  { lobes: [[-302, 9.5, 7, 3.2], [-295, 10.5, 6, 2.6], [-309, 8.5, 5, 2.2]] },
+  // 四陽洞（1258）：洞后一座圆浑的淡石绿大山，洞开在它的山脚；左边一座更高的山，再左是画外的高山
+  { lobes: [[-337.5, -23, 10, 8], [-331.5, -21, 7, 4.4], [-343.5, -21, 7, 5.6]] },
+  { lobes: [[-347, -31, 10, 10], [-353, -22, 9, 9.5], [-356, -12, 7, 7]] },
+  // 洞右上：赭坡上去一片高坡（大杂树后面）
+  { lobes: [[-326, -30, 9, 6.5], [-321, -36, 9, 7.5]] },
+];
+const dome4 = (d) => (d >= 1 ? 0 : Math.pow(1 - d * d, 1.4));
+function hills4(x, z) {
+  let s = 0;
+  for (const L of HILLS4) {
+    let acc = 0, n = 0;
+    for (const [lx, lz, R, H] of L.lobes) { const d = Math.hypot(x - lx, z - lz) / R; if (d < 1) { acc += Math.exp(0.35 * H * dome4(d)); n++; } }
+    if (n) s += Math.log(acc - n + 1) / 0.35;
+  }
+  return s;
+}
+// 卷尾峡谷北壁的顶高（东头在 x −331 落下去，溪从那里绕过）
+const ridge4 = (x) => 10.3 + 1.4 * smooth(-335, -343, x) + 0.7 * (vnoise(x * 0.21 + 3, 1.7) - 0.5) - 1.2 * smooth(-344, -347.5, x);
+export function ch4Ground(x, z, h0) {
+  const p = pathAt(x), dz = z - p.z, ad = Math.abs(dz);
+  let g = p.y + 0.9 * (fbm(x * 0.08 + 11, z * 0.08 + 5) - 0.5) * smooth(2.5, 7, ad);
+  // 画面上半：一层层往后升高的赭坡（原画上缘都是淡赭的远坡，坡上松林、杂树）
+  g += 11 * smooth(-16, -46, z) + 24 * smooth(-42, -85, z) + 3 * (fbm(x * 0.04, z * 0.05 + 2) - 0.5) * smooth(-20, -40, z);
+  g += 0.05 * Math.max(0, dz - 6);
+  g += hills4(x, z) * smooth(2.6, 6, ad);
+  // 水犀洞尖峰脚下垫起一圈（石峰立在上面）
+  g += 2.6 * Math.max(0, 1 - Math.hypot(x - PEAK4.x, (z - PEAK4.z) * 1.2) / 8) ** 1.5;
+  // 四陽洞前：洞口一片平地，青島磯一块平坡
+  { const r = Math.hypot((x - SIYANG4.x) / 6, (z - SIYANG4.z - 1.6) / 3.6); if (r < 1.6) g += (SIYANG4.y - g) * smooth(1.6, 0.9, r); }
+  { const r = Math.hypot(x - QD4.x, z - QD4.z); if (r < 5.5) g += (QD4.y - g) * smooth(5.5, 3, r); }
+  // 卷尾峡谷：峡底（游线）不动；北壁是一道圆浑的大绿坡，南壁在镜头脚下
+  if (x < -326) {
+    const kN = smooth(-327.5, -331.5, x), kS = smooth(-326, -328.5, x), fl = p.y, R = ridge4(x);
+    if (z < 1.5) {
+      // 北壁：峡里一面陡壁（z 1.5 → 0.1），顶上一道宽背，往北缓缓落到洞前的溪谷
+      const back = g, top = R + 0.6 * (fbm(x * 0.15, z * 0.3) - 0.5);
+      let w = z > 0.1 ? fl + (top - fl) * smooth(1.5, 0.1, z) : top + (back - top) * smooth(-1.4, -6.5, z);
+      w = Math.max(w, back);
+      g += (w - g) * kN;
+    } else if (z <= 6.5) g += (fl - g) * Math.max(kN, kS);
+    else {
+      const top = 17 + 1.2 * (fbm(x * 0.12 + 4, z * 0.2) - 0.5) - 1.6 * smooth(-345, -348, x), w = Math.max(g, z < 7.9 ? fl + (top - fl) * smooth(6.5, 7.9, z) : top - 0.1 * (z - 7.9)); // 壁沿落在地形网格 z 8.0 那一行上（网格 1.5 米，沿再往外，画境镜头就会看进峡里）
+      g += (w - g) * kS;
+    }
+    if (x < -347 && z > -1.5 && z < 9.5) g = Math.max(g, fl + 9 * smooth(-347, -348.8, x) * smooth(-1.5, 0.5, z) * smooth(9.5, 7.5, z)); // 峡底尽头（题刻背后）
+  }
+  g += 26 * smooth(-349.5, -356, x); // 地图尽头抬高（同原来的世界边缘），挡住画外
+  // 溪：出洞往南，河床比水面低半米，两岸缓坡
+  { const s = distToStream4(x, z); if (s.d < 3.2) { const bed = s.wl - 0.45; g = Math.min(g, bed + (g - bed) * smooth(0.7, 3.2, s.d)); } }
+  // 远处照旧（地图尽头的高山）
+  g += (Math.max(g, h0) - g) * smooth(-64, -100, z);
+  return g;
+}
+// v46 第四章的地面上色：近处石绿坡，往后渐成淡赭远坡
+export const lawn4 = (x, z) => smooth(-289, -296, x) * smooth(-40, -26, z);
+export const PADS_NOW = PADS.filter((P) => !P.old2 && !P.old3 && !P.old4).concat(PADS3, [
   { x: PIAO.x, z: PIAO.z, r: 4.2, y: PIAO.y, b: 5 },
   { x: PANYU.x, z: PANYU.z, r: 4.2, y: PANYU.y, b: 3.5 },
   { x: CHAORAN.x, z: CHAORAN.z, r: 5.5, y: CHAORAN.y, b: 5 },
@@ -711,6 +795,7 @@ export function terrainBase(x, z) {
     const w = ch3Blend(x); if (w > 0) h += (ch3Ground(x, z, h) - h) * w; // v39 第三章按原画重搭
     const f = smooth(-212, -206, x); if (f > 0) h = base + (h - base) * (1 - f * (1 - smooth(2.2, 6.5, ad))); // 和第二章接头处游线一样压平（第二章在 x > −202 压到游线高，不压会留一道 0.13 米的坎）
   }
+  if (!LAYOUT_V21.on && CH4(x)) { const w = ch4Blend(x); if (w > 0) h += (ch4Ground(x, z, h) - h) * w; } // v46 卷尾按原画重搭
   if (!LAYOUT_V21.on) h += caveHill(x, z);
   if (x > -46 && x < 2 && !S6.old && !V29.on && !LAYOUT_V21.on) h = grove7(x, z, h);
   // 玉女潭：前岸缓坡入水，后岸是陡崖（崖面另建网格），崖上是一片台地
@@ -837,7 +922,7 @@ export function buildTerrainGeometry(THREE) {
   g.setAttribute('aCrest', new THREE.BufferAttribute(crest, 1));
   g.setAttribute('aCrestL', new THREE.BufferAttribute(crestL, 1));
   const mound = new Float32Array(nx * nz), lawn = new Float32Array(nx * nz);
-  for (let k = 0; k < mound.length; k++) { const x = pos[k * 3], z = pos[k * 3 + 2]; mound[k] = Math.min(1, foreMound(x, z) / 3); lawn[k] = lawnWeight(x) - 2 * caveApron(x, z); } // 负值：洞前土坪
+  for (let k = 0; k < mound.length; k++) { const x = pos[k * 3], z = pos[k * 3 + 2]; mound[k] = Math.min(1, foreMound(x, z) / 3); lawn[k] = lawnWeight(x) + lawn4(x, z) - 2 * caveApron(x, z); } // 负值：洞前土坪
   g.setAttribute('aMound', new THREE.BufferAttribute(mound, 1));
   g.setAttribute('aLawn', new THREE.BufferAttribute(lawn, 1));
   const gor = new Float32Array(nx * nz); for (let k = 0; k < gor.length; k++) { const x = pos[k * 3], z = pos[k * 3 + 2], g6 = gorge6(x, z), d7 = dome7Tint(x, z, pos[k * 3 + 1]); gor[k] = g6 > 0 ? Math.max(g6, d7) : d7; } // v36 圆包：负值是深草
