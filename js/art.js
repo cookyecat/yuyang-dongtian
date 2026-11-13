@@ -114,6 +114,13 @@ export function terrainMaterial(tSlope, tRock, lobes = []) {
         khaki = mix(khaki, mix(OCHRE_D, OCHRE, lit*.8), gully*.5);
         col = mix(col, khaki, far8*.88*smoothstep(1.,8.,vRel));
         rim *= 1. - .75*far8*(1. - smoothstep(.6,.78,n4));
+        // v46 卷尾（IMG_1260、1258）：近处石绿坡，往后是一层层淡赭的远坡（原画上缘），山头不罩石青
+        float c4 = smoothstep(-284.,-292.,vW.x), far4 = c4*max(smoothstep(-24.,-44.,vW.z), smoothstep(9.,14.,vRel)*smoothstep(-14.,-22.,vW.z));
+        col = mix(col, khaki, far4*.85*smoothstep(1.,6.,vRel));
+        rim *= 1. - .85*c4;
+        // 中景的山（水犀洞左边山梁、四陽洞后面的圆山）：原画是淡石绿，偏青，向阳面发白
+        vec3 cel = mix(vec3(.46,.56,.55), vec3(.68,.75,.68), clamp(lit*1.05 + (n2-.5)*.3, 0., 1.));
+        col = mix(col, cel, c4*(1. - far4)*smoothstep(1.5,5.,vRel)*smoothstep(-6.,-13.,vW.z)*.8);
         col = mix(col, blue, rim*.88);
         // 第一章前景（原画 IMG_1271–1267 下缘）：地面是石绿草坡，零星露赭土；坡包身子灰绿，包头罩淡石青，坡脚一圈赭边
         {
@@ -285,6 +292,10 @@ export function rockMaterial(tRock, tCliff, { crest = false, niche = false, jade
           // v36 磐玉隈大石板（vM≈.72，只在 x > -75）：原画是偏暖的浅灰，板脚透赭
           vec3 bS = mix(vec3(.38,.39,.36), vec3(.6,.6,.54), bl);
           blue = mix(blue, bS, smoothstep(.69, .71, vM)*smoothstep(.81, .79, vM)*smoothstep(-77., -74., vW.x)*.9);
+          // v46 卷尾（IMG_1260 水犀洞、1258 四陽洞）：山石是淡石绿灰（vM≈.78），向阳面泛浅，背面、脚下透赭
+          vec3 bC = mix(mix(vec3(.42,.47,.41), vec3(.66,.69,.58), bl), vec3(.56,.5,.38), smoothstep(.35, .05, vH)*.55 + smoothstep(.2, .8, n.x)*.3);
+          blue = mix(blue, bC, smoothstep(.76, .77, vM)*smoothstep(.8, .79, vM)*smoothstep(-284., -290., vW.x));
+          blue = mix(blue, mix(vec3(.47,.36,.25), vec3(.75,.62,.45), bl), smoothstep(.815, .825, vM)*smoothstep(.845, .835, vM)*smoothstep(-284., -290., vW.x)); // 四陽洞的暖赭岩脚（vM≈.83）
         #endif
         #if !defined(JADE) && !defined(CREST)
           // 金晶巖一带（IMG_1271）的石头是灰青色，不是亮石青

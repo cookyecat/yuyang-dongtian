@@ -26,7 +26,7 @@ export const ZONES = [
   { id: 3, name: '玉女潭', x0: 92, x1: -36, photos: 'IMG_1266', stage: 'slice' },
   { id: 4, name: '云山仙境', x0: -36, x1: -200, photos: 'IMG_1265–1263', stage: 'ch2' },
   { id: 5, name: '龍湫·禪窩', x0: -200, x1: -284, photos: 'IMG_1262、1261', stage: 'ch3' },
-  { id: 6, name: '卷尾·洞壑', x0: -284, x1: -352, photos: 'IMG_1260、1258', stage: 'grey' },
+  { id: 6, name: '卷尾·洞壑', x0: -284, x1: -352, photos: 'IMG_1260、1258', stage: 'ch4' },
 ];
 
 // 景点舞台。label: 题名在世界中的位置；view: 画境视角（相机位置、注视点、视场角）
@@ -64,12 +64,12 @@ export const STAGES = [
   { id: 'S03', name: '龍湫', photo: '1261', x: -262, z: -14, r: 24, fine: true,
     labels: [['龍湫', -263, 15.5, -12]],
     view: { pos: [-263, 16, 22], at: [-264, 9.5, -16], fov: 40 } }, // v39：正对岩洞，船在洞里
-  { id: 'S02', name: '水犀洞', photo: '1260', x: -296, z: -18, r: 22,
-    labels: [['水犀洞', -296, 22, -26]],
-    view: { pos: [-294, 18, 22], at: [-296, 12, -20], fov: 46 } },
-  { id: 'S01', name: '四陽洞', photo: '1258', x: -336, z: -16, r: 22,
-    labels: [['四陽洞', -336, 15, -22], ['青島磯', -322, 10, -6]],
-    view: { pos: [-332, 13, 20], at: [-336, 8, -18], fov: 46 } },
+  { id: 'S02', name: '水犀洞', photo: '1260', x: -300, z: -16, r: 22, fine: true,
+    labels: [['水犀洞', -297.4, 18.6, -21.4]],
+    view: { pos: [-297.3, 17, 22], at: [-298.3, 10.5, -16], fov: 40 } }, // v46 按原画反投影定的画境镜头：和龍湫（S03）同一个朝向，往左平移 0.66 幅（1260 右三分之一就是 1261 左三分之一）
+  { id: 'S01', name: '四陽洞', photo: '1258', x: -337, z: -10, r: 20, fine: true,
+    labels: [['四陽洞', -335.2, 12.2, -14.6], ['青島磯', -330.6, 9.2, -8.6]],
+    view: { pos: [-339, 20.5, 12.5], at: [-339.5, 8.3, -14], fov: 40 } }, // v46：镜头在卷尾峡谷南壁上空往北看，北壁就是原画左下那面大绿坡，峡底藏在坡后
 ];
 
 // 人物外观：robe 衣色, trim 领缘, hat: cap 高巾 / bun 发髻 / kid 双髻 / bald 僧 / scarf 幅巾
@@ -188,14 +188,14 @@ export const PEOPLE = [
   { id: 'chuan', dress: 'short', name: '撑篙人', stage: 'S03', pos: [-256, 0, -12], face: 0, robe: '#d9cba8', trim: '#5a3a2a', hat: 'scarf', routine: 'boat', control: false,
     card: { eye: '龍湫对岸', title: '潭上撑船', body: ['龍湫对岸一道石壁，瀑布从崖口出来贴崖落进深潭。两个童子坐在小船上，一人站着撑篙，绕着潭来回。原画没有这一景，是游园里添的；原画的船泊在对面的岩洞里，三人坐着，一人撑篙。'], tip: '' },
     lines: ['坐稳了！'] },
-  { id: 'xi1', seat: 'straw', name: '洞中客', stage: 'S02', pos: [-297, 0, -21], face: 1.2, robe: '#eeebe1', trim: '#34404a', hat: 'cap', routine: 'sit', control: true,
-    card: { eye: '水犀洞 · IMG_1260', title: '水犀洞中对谈', body: ['尖峨岩峰半腰的小洞里，两人盘坐对谈。'], tip: '' },
+  { id: 'xi1', seat: 'straw', name: '洞中客', stage: 'S02', pos: [-301.0, 0, -21.4], face: 1.4, robe: '#9a8fb0', trim: '#e9e0c8', hat: 'cap', routine: 'sit', control: true,
+    card: { eye: '水犀洞 · IMG_1260', title: '水犀洞中对谈', body: ['水犀洞是一座双头尖峰，正面劈开一道深龛，龛里一块石台，一位紫衣、一位白衣对坐清谈。龛下石缝里长着垂草，峰脚堆着几块石青石。'], tip: '' },
     lines: ['此洞冬暖夏凉。'] },
-  { id: 'xi2', seat: 'straw', name: '洞中客', stage: 'S02', pos: [-294.6, 0, -21.4], face: -1.9, robe: '#5c6f86', trim: '#e9e0c8', hat: 'cap', routine: 'sit', control: true,
+  { id: 'xi2', seat: 'straw', name: '洞中客', stage: 'S02', pos: [-299.8, 0, -21.7], face: -1.7, robe: '#eeebe1', trim: '#34404a', hat: 'cap', routine: 'sit', control: true,
     card: { eye: '水犀洞 · IMG_1260', title: '水犀洞中对谈', body: ['另一人拱手作答。'], tip: '' },
     lines: ['前面就是四陽洞，卷尾了。'] },
-  { id: 'wang', name: '望洞者', stage: 'S01', pos: [-334, 0, -10], face: 3.1, robe: '#eeebe1', trim: '#34404a', hat: 'cap', routine: 'idle', control: true,
-    card: { eye: '四陽洞 · IMG_1258', title: '四陽洞前', body: ['全卷最后一景：一人拄杖立在洞前溪边，望向洞内。游到这里，一卷也就收了。'], tip: '' },
+  { id: 'wang', hold: 'staff', name: '望洞者', stage: 'S01', pos: [-337.4, 0, -9.6], face: 2.9, robe: '#a58a68', trim: '#5a4632', hat: 'cap', routine: 'idle', control: true,
+    card: { eye: '四陽洞 · IMG_1258', title: '四陽洞前', body: ['全卷最后一景：赭色岩脚上几孔拱洞连在一起，水从洞里一级级跌出来，汇成一条溪往右下流去。一人肩上扛着杖，立在溪边望着洞口。溪右那块平坡题着“青島磯”。游到这里，一卷也就收了。'], tip: '' },
     lines: ['洞中溪水层层流出，不知源头在哪里。', '一路辛苦，从卷首到卷尾，玉阳洞天都走遍了。'] },
 ];
 
