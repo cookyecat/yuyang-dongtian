@@ -81,7 +81,10 @@ export function terrainMaterial(tSlope, tRock, lobes = []) {
       varying vec3 vW; varying vec3 vN; varying float vRel; varying float vPath; varying float vCr; varying float vCrL; varying float vMd; varying float vLawn; varying float vRiser; varying float vGorge;
       ${COMMON}${COLORS}${CUN}
       void main(){
-        vec3 n=normalize(vN); float up=n.y;
+        vec3 n=normalize(vN);
+        // v47 卷尾峡谷南壁的壁沿（四陽洞画境镜头脚下那条坡沿）：地形网格 1.5 米一格，沿上那排顶点的法线被崖面带歪，按平顶算（不然整条坡沿像崖面一样发灰）
+        n = normalize(mix(n, vec3(0.,1.,0.), smoothstep(-369.,-373.,vW.x)*smoothstep(-396.,-392.,vW.x)*smoothstep(7.6,8.,vW.z)*smoothstep(13.,15.,vW.y)));
+        float up=n.y;
         float n1=vnoise(vW.xz*.045), n2=vnoise(vW.xz*.21+3.), n3=vnoise(vW.xz*.9), n4=vnoise(vW.xz*.012+7.);
         float lit = clamp(dot(n, normalize(vec3(-.45,.8,.4))), 0., 1.);
         float cr = clamp(vCr/2.2, -1., 1.), crL = clamp(vCrL/6., -1., 1.);
@@ -125,7 +128,8 @@ export function terrainMaterial(tSlope, tRock, lobes = []) {
         // 第一章前景（原画 IMG_1271–1267 下缘）：地面是石绿草坡，零星露赭土；坡包身子灰绿，包头罩淡石青，坡脚一圈赭边
         {
           float apr = clamp(-vLawn, 0., 1.);   // 金晶巖洞前土坪（aLawn 取负）
-          float lawn = clamp(vLawn, 0., 1.) * (1. - body*.75*(1. - c2*.65)) * (1. - rim);
+          float c4n = c4*smoothstep(-8., -3., vW.z); // v47 卷尾近处的坡包（四陽洞左下的大绿坡、画境镜头脚下的坡沿）：再高也是石绿，不转成山体的灰青
+          float lawn = clamp(vLawn, 0., 1.) * (1. - body*.75*(1. - max(c2, c4n)*.65)) * (1. - rim);
           vec3 lawnC = mix(vec3(.41,.49,.39), vec3(.55,.62,.49), clamp(lit*.95 + (n2-.5)*.6, 0., 1.));
           lawnC = mix(lawnC, vec3(.45,.55,.52), smoothstep(.45,.8,n1)*.4);                 // 偏青的一片片
           float bare = smoothstep(.7,.86, n4*.55 + n1*.55 + (n3-.5)*.2 - .05);             // 零星裸露的赭土
