@@ -17,7 +17,7 @@ import { sdfArrays, vn3 } from './rockgen.js';
 import { Crane } from './crane.js';
 import { buildYuguangGeHD, buildHexPavilionHD, buildHallHD, buildRetreatHD, buildBareTree } from './buildings.js';
 import { statueMaterial, buildGuanyinStatue, loadGuanyinHead, buildGuanyinCanopy, buildBannerPole, buildBanner, buildMoyaCliff } from './guanyin.js';
-import { createPond, streamMaterial, createWaterfall } from './water.js';
+import { createPond, streamMaterial, createWaterfall, setWaterLight } from './water.js';
 import { Birds } from './birds.js';
 import { createFarTrees } from './fartrees.js';
 import { buildRocks2, placeBlock, stoneFigureGeometry, craggyRockGeometry, primeRock, ROCK_KEYS } from './zone2.js';
@@ -103,20 +103,23 @@ post.setHeightmap(gridH, WORLD.x0, WORLD.z0, WORLD.x1 - WORLD.x0, WORLD.z1 - WOR
 scene.add(terrain);
 const terrain5 = new THREE.Mesh(buildTerrainPatch(THREE), terrain.material); scene.add(terrain5); // v32 超然亭一带的细网格（见 world.js PATCH5）
 
-const pondMesh = createPond(POND, { mobile: MOBILE }); scene.add(pondMesh); timed.push(pondMesh.material);
-const poolMesh = createPond(POOL3, { mobile: true }); scene.add(poolMesh); timed.push(poolMesh.material); // v39 龍湫潭在岩洞里（洞里暗，不做实时倒影）
-const wfPool = createPond(POOLW, { mobile: MOBILE, reflK: 0.45 }); scene.add(wfPool); timed.push(wfPool.material); // v40 对岸瀑布下的深潭
+const pondMesh = createPond(POND, { mobile: MOBILE, height: terrainHeight }); scene.add(pondMesh); timed.push(pondMesh.material);
+const poolMesh = createPond(POOL3, { mobile: true, height: terrainHeight }); scene.add(poolMesh); timed.push(poolMesh.material); // v39 龍湫潭在岩洞里（洞里暗，不做实时倒影）
+const wfPool = createPond(POOLW, { mobile: MOBILE, reflK: 0.45, height: terrainHeight }); scene.add(wfPool); timed.push(wfPool.material); // v40 对岸瀑布下的深潭
+[POND, POOL3, POOLW].forEach((P, i) => { post.mat.uniforms.ponds.value[i].set(P.x, P.z, P.rx, P.rz); post.mat.uniforms.pondY.value[i] = P.wl; }); // v48 潭岸不勾墨线（见 art.js）
 // 曲溪、隅九桥溪：沿溪线铺水带。pts 的 y 是水面高（null 时按游线高减 0.45）
 function streamBand(pts, hw, wlOf) {
-  const curve = new THREE.CatmullRomCurve3(pts), L = curve.getLength(), n = Math.ceil(L / 1.2), pos = [], idx = [], uvs = [];
+  const curve = new THREE.CatmullRomCurve3(pts), L = curve.getLength(), n = Math.ceil(L / 1.2), pos = [], idx = [], uvs = [], slp = [];
   for (let i = 0; i <= n; i++) {
     const p = curve.getPointAt(i / n), t = curve.getTangentAt(i / n), l = Math.hypot(t.x, t.z), nx = -t.z / l, nz = t.x / l, y = wlOf(p);
+    const sl = Math.abs(wlOf(curve.getPointAt(Math.min(1, (i + 1) / n))) - wlOf(curve.getPointAt(Math.max(0, (i - 1) / n)))) / (L / n * (i && i < n ? 2 : 1)); slp.push(sl, sl); // v48 溪床坡度：陡处翻白
     pos.push(p.x + nx * hw, y, p.z + nz * hw, p.x - nx * hw, y, p.z - nz * hw); uvs.push(i / n * L / 160, 0, i / n * L / 160, 1);
     if (i < n) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  const m = streamMaterial(); timed.push(m);
+  g.setAttribute('aSlope', new THREE.Float32BufferAttribute(slp, 1));
+  const m = streamMaterial(hw); timed.push(m);
   scene.add(new THREE.Mesh(g, m));
 }
 streamBand(STREAM.map(([x, z]) => new THREE.Vector3(x, 0, z)), 1.9, (p) => pathAt(p.x).y - 0.45);
@@ -678,6 +681,7 @@ const WF = (() => {
   const W = (v) => new THREE.Vector3(X, v.y, -v.z);
   return { fall, top: W(path[0].p), bottom: W(last) };
 })();
+wfPool.material.uniforms.churn.value.set(WF.bottom.x, WF.bottom.z - 0.3, 3.2, 1); // v48 落水处一片翻涌的白沫
 let peakTop4 = () => null;
 // v46 卷尾·洞壑（IMG_1260 水犀洞、IMG_1258 四陽洞）：照原画在画境镜头里反投影摆（data.js S02、S01 的 view）
 // 石色 aM：.78 淡石绿灰（水犀洞尖峰、四陽洞一带的山石，见 art.js），.95 赭灰，.45–.5 石青
@@ -1902,7 +1906,7 @@ function updateNPC(f, dt) {
   if (state.ctrl && state.ctrl.root.position.distanceTo(f.root.position) < 5) f.look = state.ctrl.root.position; else if (!f.action) f.look = null;
 }
 
-let boatT = 0, fallRip = 0, fallI = 0, cloudN = 0;
+let boatT = 0, fallRip = 0, fallI = 0, cloudN = 0, floatLamps = null;
 function frame() {
   window.__frames = (window.__frames || 0) + 1;
   const rawDt = clock.getDelta(), dt = Math.min(0.05, rawDt), t = clock.elapsedTime;
@@ -2027,6 +2031,11 @@ function frame() {
   }
   cullTrees();
   DN.update(dt, t, { ctrl: state.mode === 'control' ? state.ctrl : null });
+  { // v48 水面的日月波光、玉女潭的河灯水影
+    setWaterLight(DN.S.sky); const u = pondMesh.material.uniforms; u.lampK.value = DN.S.sky.lamp;
+    if (!floatLamps || !floatLamps.length) floatLamps = DN.S.lamps.filter((L) => L.kind === 'float');
+    if (u.lampK.value > 0.01) floatLamps.forEach((L, i) => { if (i < 8) u.lamps.value[i].set(L.p.x, L.p.z, 1); });
+  }
   if (frameN % 15 === 0) updateClockUI();
   renderer.info.reset();
   post.render(scene, camera, t);
