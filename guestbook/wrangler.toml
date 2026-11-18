@@ -16,4 +16,4 @@ DAILY_CAP = "500"
 [[d1_databases]]
 binding = "DB"
 database_name = "yuyang-guestbook"
-database_id = "把 wrangler d1 create 输出的 database_id 贴在这里"
+database_id = "e917bf25-12bd-4ae8-94d9-c78a14abc2b8"
