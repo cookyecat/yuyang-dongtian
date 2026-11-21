@@ -348,6 +348,11 @@ const HILLS4 = [
   // 洞右上：一片缓缓升起的赭坡（大杂树后面，坡上几株高树）
   { lobes: [[-371, -30, 9, 1.5], [-366, -36, 9, 2]] },
 ];
+// v50 南边合拢的一圈山：[x, z, 半径（东西向）, 比谷底高]，南北向扁 1.25 倍；水犀洞画境镜头（z 22）、四陽洞画境镜头（z 12.5）都在山前
+const SOUTH4 = [
+  [-307, 34, 8, 6], [-337, 33, 7, 4.5], [-367, 35, 8, 6], [-393, 35, 7, 4],                                          // 近处矮坡包
+  [-307, 50, 11, 14], [-320, 56, 17, 26], [-334, 50, 10, 13], [-350, 51, 12, 11], [-363, 61, 16, 24], [-386, 56, 14, 19], [-399, 50, 8, 9], // 中间一道：水犀洞对面最高，两景之间低成鞍，四陽洞对面再起
+  [-312, 80, 18, 30], [-342, 82, 20, 33], [-374, 82, 18, 29], [-402, 70, 12, 22]];                                     // 后面高的一道
 // v47 水犀洞左边那座尖顶青山（原画 1260 左半，山尖在 u .2、v .25）和它右后一座矮些的石青色小山
 function cone4(x, z) {
   let s = 0;
@@ -395,6 +400,18 @@ export function ch4Ground(x, z, h0) {
   }
   // 从两景之间那段路起，游线南边往南缓缓落进云谷（云在脚下，不压游线）
   if (x < -326 && z > p.z) g -= 11 * smooth(9, 34, dz) * smooth(-326, -340, x);
+  // v50 南边一圈圆浑的山（Yang：水犀洞前那片平地一直通到画外，别处都有山阻隔，这里像是可以随便闯进来）：
+  // 游线和山之间是云谷，山后再抬一道，地图边不露底
+  if (z > 22) {
+    // 三层：近处几个矮坡包，中间一道山，后面一道更高的；山头之间软连成鞍（同 hills4），山面顺坡几道褶
+    let acc = 0, n = 0;
+    for (const [cx, cz, R, Hh] of SOUTH4) {
+      const d = Math.hypot(x - cx, (z - cz) * 1.25) / R * (1 + 0.18 * (fbm(x * 0.05 + cz, z * 0.05 + cx * 0.01) - 0.5));
+      if (d < 1) { acc += Math.exp(0.3 * Hh * dome4(d)); n++; }
+    }
+    if (n) { const u = Math.log(acc - n + 1) / 0.3; g += u * (1 + 0.14 * (fbm(x * 0.11 + z * 0.04, z * 0.11) - 0.5)) - 0.9 * u / 20 * Math.abs(Math.sin(x * 0.21 + 2.2 * fbm(x * 0.05, z * 0.08))) ; }
+    g += 22 * smooth(64, 86, z) * smooth(-292, -312, x); // 东头（第三章那边）缓缓落下，不起一道直墙
+  }
   // 望云台：游线尽头一片平地；台外（西、西南）一落千丈，崖下是云海
   { const r = Math.hypot((x + 403.5) / 8.5, (z - 4.5) / 7.5); if (r < 1.25) g += (p.y + 0.25 * (fbm(x * 0.2, z * 0.2) - 0.5) - g) * smooth(1.25, 0.85, r); }
   { const open = smooth(-18, -9, z), drop = smooth(-411.6, -417, x) * open; if (drop > 0) g += (Math.min(g, p.y - 16 - 6 * smooth(-416, -428, x)) - g) * drop; }
@@ -408,7 +425,7 @@ export function ch4Ground(x, z, h0) {
 // v46 第四章的地面上色：近处石绿坡，往后渐成淡赭远坡
 export function lawn4(x, z) {
   if (x > -289) return 0;
-  const L = smooth(-289, -296, x) * Math.max(smooth(-40, -26, z), smooth(0.8, 3, cone4(x, z)) * smooth(-345, -335, x)); // v47 左边尖顶青山整座是绿的，衬在山后的赭坡上
+  const L = smooth(-289, -296, x) * Math.max(smooth(-40, -26, z), smooth(0.8, 3, cone4(x, z)) * smooth(-345, -335, x)) * (1 - 0.8 * smooth(28, 40, z)); // v47 左边尖顶青山整座是绿的，衬在山后的赭坡上；v50 南山不铺草坡色，按山体上色（同玉女潭后山）
   // v47 赭土（负值，同金晶巖洞前土坪的上色）：四陽洞流出的溪两岸、洞右上那面赭坡（原画 1258）
   let o = smooth(-23, -28, z) * smooth(-378, -373, x) * smooth(-350, -356, x);
   if (x < -364 && x > -390 && z < 2) {
@@ -818,11 +835,17 @@ export function terrainBase(x, z) {
   if (!LAYOUT_V21.on) h += back8(x, z); // v44 玉女潭后面的群山
   h += foreMound(x, z);
   if (!LAYOUT_V21.on && CH2(x)) h += ch2Hills(x, z, h);
+  const hPre = h; // v50 第三、四章接缝用
   if (!LAYOUT_V21.on && CH3(x)) {
     const w = ch3Blend(x); if (w > 0) h += (ch3Ground(x, z, h) - h) * w; // v39 第三章按原画重搭
     const f = smooth(-212, -206, x); if (f > 0) h = base + (h - base) * (1 - f * (1 - smooth(2.2, 6.5, ad))); // 和第二章接头处游线一样压平（第二章在 x > −202 压到游线高，不压会留一道 0.13 米的坎）
   }
   if (!LAYOUT_V21.on && CH4(x)) { const w = ch4Blend(x); if (w > 0) h += (ch4Ground(x, z, h) - h) * w; } // v46 卷尾按原画重搭
+  // v50 第三、四章接缝（x −283..−296）的南边：原来缝里露出底下的老地形（地图边抬高 30 米），路南立起一道又薄又高的山脊。改成两边地形直接过渡
+  if (!LAYOUT_V21.on && x < -283 && x > -296 && z > p.z + 4) {
+    const k = smooth(-283, -296, x), hs = ch3Ground(x, z, hPre) * (1 - k) + ch4Ground(x, z, hPre) * k;
+    h += (hs - h) * smooth(p.z + 4, p.z + 10, z);
+  }
   if (!LAYOUT_V21.on) h += caveHill(x, z);
   if (x > -46 && x < 2 && !S6.old && !V29.on && !LAYOUT_V21.on) h = grove7(x, z, h);
   // 玉女潭：前岸缓坡入水，后岸是陡崖（崖面另建网格），崖上是一片台地

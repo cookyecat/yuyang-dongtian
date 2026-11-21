@@ -788,10 +788,11 @@ let peakTop4 = () => null;
   // v49 卷尾峡谷撤掉（两壁的嶙峋石一并去掉）。望云台崖头几块青灰嶙峋石，台外云海里几座远峰（淡青，一座比一座远）
   for (const [x, z, w, d, top, sd] of [[-411.6, -4.8, 2.6, 2.2, 9.4, 4651], [-412.4, -2.2, 1.8, 1.6, 7.6, 4652], [-411.8, 12.6, 2.4, 2.0, 8.2, 4653], [-413.2, 10.4, 1.6, 1.4, 6.9, 4654]])
     blk(x, z, w, d, -2, top, { tone: CEL, ry: x * 0.3 + z, seed: sd, keepY: true, col: 0 });
-  // 题名壁：一道低石屏，背后、两头靠着几块淡石绿的嶙峋石（不是一块孤零零的方石）
-  blk(-400.95, 13.1, 9.8, 2.8, 5, 10.6, { tone: CEL, ry: Math.PI - 0.35, seed: 4669, col: 0, keepY: true });
-  blk(-404.6, 13.0, 2.4, 2.2, 5, 9.0, { tone: CEL, ry: 0.9, seed: 4670, col: 1.0, keepY: true });
-  blk(-396.6, 10.4, 2.0, 1.8, 5, 7.6, { tone: CEL, ry: -0.5, seed: 4673, col: 0.9, keepY: true });
+  // 题名壁：一道低石屏，背后、两头靠着几块暖灰的嶙峋石（tone .72，同磐玉隈大石板的浅灰）（不是一块孤零零的方石）。v50 随题名壁挪到玉女潭玉光閣西边（见 credit.js END.wall）
+  { const S = END.wall, fx = Math.sin(S.ry), fz = Math.cos(S.ry), ax = Math.cos(S.ry), az = -Math.sin(S.ry), y0 = H(S.x, S.z);
+    blk(S.x - fx * 1.6, S.z - fz * 1.6, S.w + 1.2, 2.8, y0 - 1, y0 + 4.6, { tone: 0.72, ry: S.ry, seed: 4669, col: 0, keepY: true });
+    for (const [k, sd, w, h] of [[-1, 4670, 2.4, 3.0], [1, 4673, 2.0, 1.7]]) { const x = S.x + ax * k * (S.w / 2 + 0.9) - fx * 0.5, z = S.z + az * k * (S.w / 2 + 0.9) - fz * 0.5;
+      blk(x, z, w, w * 0.9, H(x, z) - 1, H(x, z) + h, { tone: 0.72, ry: S.ry + k, seed: sd, col: w * 0.4, keepY: true }); } }
   // 题刻立崖：题刻石板背后靠一整块青灰的崖（石板像是崖面上磨平刻字的一块）
   blk(-406.1, -3.0, 7.4, 3.6, 5, 13.8, { tone: CEL, ry: 0.75, seed: 4667, col: 2.2, keepY: true });
   blk(-408.6, -1.0, 3.2, 2.6, 5, 10.2, { tone: CEL, ry: 0.4, seed: 4668, col: 1.2, keepY: true });
@@ -856,7 +857,10 @@ await step('布散石');
     if (CH3(x) ? pondShape(x, z, POOL) < 1.02 : waterLevel(x, z) > -1e8) continue;
     const s = 0.3 + Math.pow(r(), 2.6) * (z < p.z - 15 ? 3.2 : 1.0);
     const y = terrainHeight(x, z) - s * 0.25;
-    if (x > -40 && x < 95) { if (i % 5 === 0 && s < 1.1 && z > p.z - 40) sliceL[i % 4].push(new THREE.Matrix4().compose(new THREE.Vector3(x, y - s * 0.1, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r() * 6, 0)), new THREE.Vector3(s * 0.8, s * 0.7, s * 0.8))); if (s > 0.8 && d < 30) circleCol(x, z, s * 0.8); continue; }
+    if (x > -40 && x < 95) {
+      const nearWall = Math.hypot(x - END.wall.x, z - END.wall.z) < 6.5; // v50 题名壁四周不放（随机数照常取，别处的石头不变）
+      if (i % 5 === 0 && s < 1.1 && z > p.z - 40) { const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y - s * 0.1, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r() * 6, 0)), new THREE.Vector3(s * 0.8, s * 0.7, s * 0.8)); if (!nearWall) sliceL[i % 4].push(m); }
+      if (s > 0.8 && d < 30 && !nearWall) circleCol(x, z, s * 0.8); continue; }
     const M = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r() * 6, 0)), new THREE.Vector3(s * (1 + r() * 0.4), s, s));
     if (onMassif(x, z)) continue; // 隐春巖石壁上不撒（随机数照常取，别处的石头不变）
     if (CH2(x) || CH3(x) || CH4(x)) continue; // 第二章（v27）、第三章（v39）、第四章（v46）石头按原画另摆
@@ -1271,6 +1275,10 @@ exitV33();
   scatter('dwarfpine', MOBILE ? 4 : 7, -418, -400, -48, -30, 0.7, 1.0, 0.7, 3);   // 左上大山坡上一团团墨绿
   grove('pine', MOBILE ? 4 : 7, -408, -64, 7, 0.6, 0.85, 0.84, 3.2);     // 远坡一丛
   // v49 望云台：崖头一株老松探向云海，台南一丛矮松
+  for (const t of Object.keys(TREES)) for (const T of TREES[t]) { const d = Math.hypot(T[0] - END.wall.x, T[1] - END.wall.z); if (d < 6 || (d < 9 && T[0] < 4)) T[2] = 0; } // v50 玉女潭题名壁四周的树拿掉（连同路东头望过去正挡在石屏前的那株老树）（大小置 0，序号不变）
+  // v50 南山：山脊上几丛松、杂树（比近处的小，远山上的松是一簇簇小点），丛与丛之间留白
+  grove('pine', MOBILE ? 5 : 8, -316, 50, 6, 0.55, 0.8, 0.8, 3); grove('pine', MOBILE ? 5 : 8, -350, 52, 6, 0.55, 0.8, 0.8, 3); grove('broad', MOBILE ? 2 : 4, -381, 56, 5, 0.8, 1.0, 0.74, 3.4);
+  grove('pine', MOBILE ? 4 : 7, -333, 72, 7, 0.5, 0.7, 0.84, 3.2); grove('dwarfpine', MOBILE ? 3 : 4, -304, 36, 4, 0.7, 0.9, 0.68, 2.8);
   add('pine', -410.4, -3.4, 1.25, 0.78); add('dwarfpine', -409.6, 12.2, 0.8, 0.68); add('shrub', -408.4, 13.2, 0.6, 0.66);
 }
 const foliageMats = [], treeSets = [];
@@ -1408,7 +1416,8 @@ const CLOUD_L = [];
   for (const [x, z, w, dy] of [[-346, -44, 26, 4], [-332, -50, 24, 5], [-360, -48, 24, 5]]) L.push([x, terrainHeight(x, z) + dy, z, w]);
   // v49 卷尾：望云台外（西、西南）一片云海，崖下的云顶比台面低四五米；游线南边云谷里一层低云；后山赭坡腰上再添几道云带（原画 1260 左上云带横穿松林，1258 左上一片空濛）
   for (const [x, y, z, w] of [[-421, 2.5, 4, 22], [-420, 2.5, -8, 20], [-422, 2, 16, 22], [-438, 1.5, -10, 32], [-442, 1.5, 22, 36], [-462, 0.5, 4, 44], [-430, 1, 40, 34], [-490, 2, 34, 52], [-496, 3, -16, 52], [-418, 1, 28, 24], [-460, 4, -32, 40], [-530, 6, 8, 60], [-560, 10, -10, 70]]) L.push([x, y, z, w]);
-  for (const [x, z, w] of [[-352, 36, 30], [-376, 40, 34], [-400, 34, 30], [-336, 44, 28], [-392, 58, 36]]) L.push([x, terrainHeight(x, z) + 3.5, z, w]);
+  for (const [x, z, w] of [[-350, 30, 24], [-372, 31, 26], [-396, 29, 22], [-336, 31, 18]]) L.push([x, terrainHeight(x, z) + 3.5, z, w]); // v50 云谷收窄到游线和南山之间
+  for (const [x, z, w, dy] of [[-330, 58, 26, 3], [-372, 64, 26, 3], [-306, 56, 22, 4]]) L.push([x, terrainHeight(x, z) + dy, z, w]);          // 南山山腰几团云
   for (const [x, z, w, dy] of [[-316, -60, 28, 5], [-302, -66, 26, 6], [-330, -64, 26, 6], [-404, -56, 30, 6], [-418, -46, 28, 5], [-392, -64, 30, 7]]) L.push([x, terrainHeight(x, z) + dy, z, w]);
   // 体积云在后处理里步进，这里只记下每团云的位置、大小和噪声种子
   L.forEach((c, i) => { c[4] = i * 3.7; });
@@ -2103,7 +2112,7 @@ setCam(new THREE.Vector3(...startStage.view.pos), new THREE.Vector3(...startStag
 camera.fov = startStage.view.fov; camera.updateProjectionMatrix(); applyFreeCam();
 setHint();
 $('go').onclick = () => { $('intro').hidden = true; };
-// v43 署名：常驻朱印点开见跋；跋里可去卷尾、去题名壁。题名取回来后刻到卷尾北壁上
+// v43 署名：常驻朱印点开见跋；跋里可去卷尾、去题名壁。题名取回来后刻到题名壁上（v50 起在玉女潭）
 function flyEnd() {
   if (state.mode === 'control') releaseControl(false);
   if (state.focus) { state.focus.hl = 0; state.focus.paused = false; state.focus = null; closeCard(); }
@@ -2111,7 +2120,14 @@ function flyEnd() {
   const v = END.view, pos = new THREE.Vector3(...v.pos), at = new THREE.Vector3(...v.at);
   flyTo(pos, at, v.fov, () => { setCam(pos, at); state.mode = 'free'; setHint(); }, 3);
 }
-const creditUI = initCreditUI({ onFlyEnd: flyEnd, onWallItems: (items) => credit.setWall(items) });
+function flyWall() { // v50 题名壁在玉女潭
+  if (state.mode === 'control') releaseControl(false);
+  if (state.focus) { state.focus.hl = 0; state.focus.paused = false; state.focus = null; closeCard(); }
+  $('intro').hidden = true; hideOverlay();
+  const v = END.wallView, pos = new THREE.Vector3(...v.pos), at = new THREE.Vector3(...v.at);
+  flyTo(pos, at, v.fov, () => { setCam(pos, at); state.mode = 'free'; setHint(); }, 2.4);
+}
+const creditUI = initCreditUI({ onFlyEnd: flyEnd, onFlyWall: flyWall, onWallItems: (items) => credit.setWall(items) });
 $('goHead').onclick = () => { $('intro').hidden = true; const S = STAGES[0]; paintView(S); };
 document.fonts && document.fonts.ready.then(() => {});
 DN.finalize({ pond: POND });
