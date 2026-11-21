@@ -1,6 +1,6 @@
 // v43 署名与题名壁：作者的跋（常驻朱印点开）、卷尾峡谷尽头的摩崖题刻、峡谷北壁的「题名壁」（游人到此一游）、峡口写生的画师。
-// 卷尾四陽洞左边是一道死胡同似的窄峡（z 1.5–6.5 平地，x 到 -392 为止（v47 随四陽洞整体左移 45 米），两侧陡崖），作者的题刻刻在峡底正对来路的崖面上，
-// 游人题名刻在北壁上，画师坐在南侧铺纸写生。题名的数据存在 Cloudflare Worker（见 guestbook/），地址写在 index.html 的 <meta name="yy-guestbook">。
+// v49 卷尾峡谷撤掉：游线尽头是一片临崖的望云台，台外云海。作者的题刻刻在台北一面立崖上迎着来路，
+// 游人题名刻在台南一道低石屏上，画师坐在崖沿对着云海写生。题名的数据存在 Cloudflare Worker（见 guestbook/），地址写在 index.html 的 <meta name="yy-guestbook">。
 import * as THREE from 'three';
 
 export const AUTHOR = {
@@ -9,12 +9,13 @@ export const AUTHOR = {
   x: 'https://x.com/myannli', xName: '@myannli',
   date: '丙午初冬',
 };
-// 卷尾峡谷：题刻、题名壁、画师的位置
+// 卷尾望云台：题刻、题名壁、画师的位置
 export const END = {
-  moya: { x: -391.7, z: 4.0, w: 5.6, h: 6.4, ry: Math.PI / 2 },   // 峡底正对来路
-  wall: { x: -382.6, z: 1.35, w: 8.6, h: 3.9, ry: 0.04 },         // 北壁，朝南（略朝东，迎着走来的人）
-  painter: { x: -383.6, z: 5.55, face: -Math.PI / 2 - 0.25 },     // 南侧，面朝峡底的题刻
-  view: { pos: [-370.5, 9.6, 5.2], at: [-389, 8.2, 3.2], fov: 50 },
+  // v49 卷尾峡谷撤掉，改成游线尽头的望云台：题刻是台北一面立崖，迎着来路；题名壁是台南一道低石屏；画师坐在崖沿对着云海写生
+  moya: { x: -404.6, z: -1.6, w: 5.6, h: 6.4, ry: 0.75 },
+  wall: { x: -400.4, z: 11.6, w: 8.6, h: 3.9, ry: Math.PI - 0.35 },
+  painter: { x: -408.6, z: 5.2, face: -Math.PI / 2 + 0.15 },
+  view: { pos: [-386, 11.5, 10], at: [-406, 6.5, 3], fov: 50 },
 };
 const BRUSH = '"Ma Shan Zheng","STKaiti","KaiTi","Kaiti SC",serif';
 const SIG = '"YY Sig","Kaiti TC","BiauKai","KaiTi",serif'; // 落款、印章（繁体「李揚」，马善政体没有这个字）
@@ -89,7 +90,7 @@ function sealOn(g, x, y, s, text, { white = true } = {}) { // 方印：白文（
   g.globalAlpha = 0.88; g.drawImage(c, x, y); g.globalAlpha = 1;
 }
 
-function inscriptionTexture() { // 峡底摩崖：作者题记
+function inscriptionTexture() { // 望云台立崖上的摩崖：作者题记
   const W = 1024, H = 1170, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d');
   // 题刻范围略微磨平：一块浅一点的方框
@@ -192,18 +193,18 @@ export function buildCreditSite({ scene, groundHeight, rockMat, flat, Kit, COL, 
   if (document.fonts) Promise.all([document.fonts.load('60px "YY Sig"', '李揚與製'), document.fonts.load('60px "Ma Shan Zheng"', '玉阳洞天题名壁')])
     .then(() => { swap(moya.plane, inscriptionTexture()); swap(wall.plane, wallTexture(wallItems)); }).catch(() => {});
 
-  // 画师：南侧铺纸写生，面前一张矮几（纸、笔、砚），身后一只书箱
+  // 画师：望云台崖沿铺纸写生（v49，原来在峡口），面前一张矮几（纸、笔、砚），身后一只书箱
   const P = END.painter;
   const def = {
     id: 'huashi', name: '画师', pos: [P.x, 0, P.z], face: P.face, robe: '#efe9da', trim: '#3f6f8c', hat: 'scarf', seat: 'cushion', routine: 'sit', control: false,
-    card: { eye: '卷尾 · 四陽洞外', title: '峡口的画师',
-      body: ['峡谷尽头有位画师铺纸写生，对着崖上的题刻一笔一笔地描。原画里没有他：他是这座游园的作者留在画里的影子。',
+    card: { eye: '卷尾 · 望云台', title: '崖头的画师',
+      body: ['路的尽头是一片临崖的平台，台外云海茫茫。一位画师坐在崖沿铺纸写生，画的正是这一卷。原画里没有他：他是这座游园的作者留在画里的影子。',
         `<span class="cr">${AUTHOR.en} 与 ${AUTHOR.partner} 同制 · <a href="${AUTHOR.github}" target="_blank" rel="noopener">GitHub</a> · <a href="${AUTHOR.x}" target="_blank" rel="noopener">X ${AUTHOR.xName}</a></span>`],
-      tip: '接管一位游人走到他身边，可以和他聊几句；北边石壁上可以题名。', extra: [['看跋', 'ba'], ['题名', 'wall']] },
+      tip: '接管一位游人走到他身边，可以和他聊几句；台南那道石屏上可以题名。', extra: [['看跋', 'ba'], ['题名', 'wall']] },
     lines: ['有客到了！这一卷从金晶巖一路走到四陽洞，你都看过了吗？',
       '我照着展厅里拍下的十三帧，和 Claude 一起，一山一石、一屋一人地把它搭成了能走进去的山水。',
       '原画接缝处看不清的地方，是我们按画意补的。哪里不像，尽管告诉我。',
-      '北边那面石壁是题名壁。留个名字吧，也算到此一游。'],
+      '身后那道石屏是题名壁。留个名字吧，也算到此一游。'],
     after: 'ba',
   };
   const f = new Figure(def); figs.set(def.id, f);

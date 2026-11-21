@@ -367,9 +367,6 @@ function hills4(x, z) {
   }
   return s;
 }
-// 卷尾峡谷北壁的顶高（东头在 x −331 落下去，溪从那里绕过）
-// v47 照原画左下那面大绿坡的坡顶线抬高：x −387.5 最高（游线上 7.5 米），往右缓缓落到溪口
-const ridge4 = (x) => 9 + 6 * Math.exp(-(((x + 387.5) / (x < -387.5 ? 9 : 3.4)) ** 2)) + 0.7 * (vnoise((x + 45) * 0.21 + 3, 1.7) - 0.5);
 export function ch4Ground(x, z, h0) {
   const p = pathAt(x), dz = z - p.z, ad = Math.abs(dz);
   let g = p.y + 0.9 * (fbm(x * 0.08 + 11, z * 0.08 + 5) - 0.5) * smooth(2.5, 7, ad);
@@ -384,23 +381,24 @@ export function ch4Ground(x, z, h0) {
   // 四陽洞前：洞口一片平地，青島磯一块平坡
   { const r = Math.hypot((x - SIYANG4.x) / 6, (z - SIYANG4.z - 1.6) / 3.6); if (r < 1.6) g += (SIYANG4.y - g) * smooth(1.6, 0.9, r); }
   { const r = Math.hypot(x - QD4.x, z - QD4.z); if (r < 5.5) g += (QD4.y - g) * smooth(5.5, 3, r); }
-  // 卷尾峡谷：峡底（游线）不动；北壁是一道圆浑的大绿坡，南壁在镜头脚下
-  if (x < -371) {
-    const kN = smooth(-372.5, -376.5, x), kS = smooth(-371, -373.5, x), fl = p.y, R = ridge4(x);
-    if (z < 1.5) {
-      // 北壁：峡里一面陡壁（z 1.5 → 0.1），顶上一道宽背，往北缓缓落到洞前的溪谷
-      const back = g, top = R + 0.6 * (fbm(x * 0.15, z * 0.3) - 0.5);
-      let w = z > 0.1 ? fl + (top - fl) * smooth(1.5, 0.1, z) : top + (back - top) * smooth(-1.4, -6.5, z);
-      w = Math.max(w, back);
-      g += (w - g) * kN;
-    } else if (z <= 6.5) g += (fl - g) * Math.max(kN, kS);
-    else {
-      const top = 17 + 1.2 * (fbm(x * 0.12 + 4, z * 0.2) - 0.5) - 1.6 * smooth(-390, -393, x), w = Math.max(g, z < 7.9 ? fl + (top - fl) * smooth(6.5, 7.9, z) : top - 0.1 * (z - 7.9)); // 壁沿落在地形网格 z 8.0 那一行上（网格 1.5 米，沿再往外，画境镜头就会看进峡里）
-      g += (w - g) * kS;
-    }
-    if (x < -392 && z > -1.5 && z < 9.5) g = Math.max(g, fl + 9 * smooth(-392, -393.8, x) * smooth(-1.5, 0.5, z) * smooth(9.5, 7.5, z)); // 峡底尽头（题刻背后）
+  // v49 卷尾不再是死胡同窄峡（Yang：卷尾拥挤、没有意境）：北边原画左下那面大绿坡收成一座圆包，东头在溪口落下去，
+  // 从石桥上顺着溪望得见洞；南边只剩低低的坡沿，再往南缓缓落进云谷；游线尽头一片平台（望云台），台外一落千丈，云海、远山、留白收卷
+  if (x < -364) {
+    const fl = p.y, k = smooth(-364, -372, x);
+    // 北：大绿坡圆包（顶在 z −3.5，离游线 7–8 米；x −388 最高，游线上 8 米）
+    const Hm = 1 + 7 * Math.exp(-(((x + 388) / (x < -388 ? 8 : 4.8)) ** 2));
+    const dm = Math.abs(z + 3.5) / 6.5, mound = fl + Hm * dome4(dm) * (1 + 0.08 * (fbm(x * 0.15, z * 0.3) - 0.5));
+    if (dm < 1) g = Math.max(g, g + (mound - g) * k * smooth(2.4, 4.2, p.z - z));
+    // 南：游线外一道低坡沿（游线上 1–2 米），过了坡沿往南缓缓落进云谷
+    if (z > p.z) { const lip = fl + (1.2 + 0.8 * fbm(x * 0.1 + 7, 2.2)) * smooth(2.6, 6, dz) * smooth(16, 9, dz);
+      g += (lip - g) * k * smooth(2.6, 4, dz); }
   }
-  g += (14 + 30 * fbm(z * 0.04 + 3, x * 0.03 + 7)) * smooth(-412, -428, x); // 地图尽头抬高，挡住画外（v47 起伏成一道山，远看不是一堵平顶墙）
+  // 从两景之间那段路起，游线南边往南缓缓落进云谷（云在脚下，不压游线）
+  if (x < -326 && z > p.z) g -= 11 * smooth(9, 34, dz) * smooth(-326, -340, x);
+  // 望云台：游线尽头一片平地；台外（西、西南）一落千丈，崖下是云海
+  { const r = Math.hypot((x + 403.5) / 8.5, (z - 4.5) / 7.5); if (r < 1.25) g += (p.y + 0.25 * (fbm(x * 0.2, z * 0.2) - 0.5) - g) * smooth(1.25, 0.85, r); }
+  { const open = smooth(-18, -9, z), drop = smooth(-410.5, -416, x) * open; if (drop > 0) g += (Math.min(g, p.y - 16 - 6 * smooth(-416, -428, x)) - g) * drop; }
+  g += (14 + 30 * fbm(z * 0.04 + 3, x * 0.03 + 7)) * smooth(-412, -428, x) * smooth(-9, -18, z); // 地图尽头的山只留在北边（v49 西、西南敞开成云海）
   // 溪：出洞往南，河床比水面低半米，两岸缓坡
   { const s = distToStream4(x, z); if (s.d < 3.2) { const bed = s.wl - 0.45; g = Math.min(g, bed + (g - bed) * smooth(0.7, 3.2, s.d)); } }
   // 远处照旧（地图尽头的高山）
