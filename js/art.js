@@ -82,8 +82,6 @@ export function terrainMaterial(tSlope, tRock, lobes = []) {
       ${COMMON}${COLORS}${CUN}
       void main(){
         vec3 n=normalize(vN);
-        // v47 卷尾峡谷南壁的壁沿（四陽洞画境镜头脚下那条坡沿）：地形网格 1.5 米一格，沿上那排顶点的法线被崖面带歪，按平顶算（不然整条坡沿像崖面一样发灰）
-        n = normalize(mix(n, vec3(0.,1.,0.), smoothstep(-369.,-373.,vW.x)*smoothstep(-396.,-392.,vW.x)*smoothstep(7.6,8.,vW.z)*smoothstep(13.,15.,vW.y)));
         float up=n.y;
         float n1=vnoise(vW.xz*.045), n2=vnoise(vW.xz*.21+3.), n3=vnoise(vW.xz*.9), n4=vnoise(vW.xz*.012+7.);
         float lit = clamp(dot(n, normalize(vec3(-.45,.8,.4))), 0., 1.);
@@ -463,6 +461,17 @@ export function rockMaterial(tRock, tCliff, { crest = false, niche = false, jade
             brown = mix(brown, brown*.7, smoothstep(.0, .5, sf)*.25*(1. - step(.8, up)));
             brown = mix(brown, INK*.8 + brown*.3, strata*.6);
             col = brown * (1. - .32*deep);
+          }
+        }
+        #endif
+        #ifdef PAINT
+        { // v49 望云台外云海里的远峰（x < −480）：淡石青峰头，往下化进淡赭绢色（云里），不勾墨线、不点苔
+          float fk = smoothstep(-480., -510., vW.x);
+          if (fk > 0.) {
+            float l2 = clamp(lit*1.1 + nn*.2, 0., 1.);
+            vec3 far = mix(vec3(.46,.58,.62), vec3(.64,.71,.68), l2);
+            far = mix(far, vec3(.8,.77,.66), smoothstep(.62, .2, vH));
+            col = mix(col, far, fk);
           }
         }
         #endif
