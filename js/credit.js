@@ -1,6 +1,6 @@
 // v43 署名与题名壁：作者的跋（常驻朱印点开）、卷尾峡谷尽头的摩崖题刻、峡谷北壁的「题名壁」（游人到此一游）、峡口写生的画师。
-// v49 卷尾峡谷撤掉：游线尽头是一片临崖的望云台，台外云海。作者的题刻刻在台北一面立崖上迎着来路，
-// 游人题名刻在台南一道低石屏上，画师坐在崖沿对着云海写生。题名的数据存在 Cloudflare Worker（见 guestbook/），地址写在 index.html 的 <meta name="yy-guestbook">。
+// v49 卷尾峡谷撤掉：游线尽头是一片临崖的望云台，台外云海。作者的题刻刻在台北一面立崖上迎着来路，画师坐在崖沿对着云海写生。
+// v50 游人的题名壁挪到玉女潭（开场就在这里，人人路过）：玉光閣西边游线南侧一道低石屏。题名的数据存在 Cloudflare Worker（见 guestbook/），地址写在 index.html 的 <meta name="yy-guestbook">。
 import * as THREE from 'three';
 
 export const AUTHOR = {
@@ -13,7 +13,9 @@ export const AUTHOR = {
 export const END = {
   // v49 卷尾峡谷撤掉，改成游线尽头的望云台：题刻是台北一面立崖，迎着来路；题名壁是台南一道低石屏；画师坐在崖沿对着云海写生
   moya: { x: -404.6, z: -1.6, w: 5.6, h: 6.4, ry: 0.75 },
-  wall: { x: -400.4, z: 11.6, w: 8.6, h: 3.9, ry: Math.PI - 0.35 },
+  // v50 题名壁挪到玉女潭（Yang：放在卷尾，进来的人看不见）：玉光閣西边游线南侧一道石屏，朝着游线和东来的人；开场画境镜头里看不到
+  wall: { x: -4.5, z: 12, w: 8.6, h: 3.9, ry: 2.78 },
+  wallView: { pos: [3.5, 9.2, 2.5], at: [-4.5, 7.6, 12], fov: 50 },
   painter: { x: -408.6, z: 5.2, face: -Math.PI / 2 + 0.15 },
   view: { pos: [-386, 11.5, 10], at: [-406, 6.5, 3], fov: 50 },
 };
@@ -200,11 +202,11 @@ export function buildCreditSite({ scene, groundHeight, rockMat, flat, Kit, COL, 
     card: { eye: '卷尾 · 望云台', title: '崖头的画师',
       body: ['路的尽头是一片临崖的平台，台外云海茫茫。一位画师坐在崖沿铺纸写生，画的正是这一卷。原画里没有他：他是这座游园的作者留在画里的影子。',
         `<span class="cr">${AUTHOR.en} 与 ${AUTHOR.partner} 同制 · <a href="${AUTHOR.github}" target="_blank" rel="noopener">GitHub</a> · <a href="${AUTHOR.x}" target="_blank" rel="noopener">X ${AUTHOR.xName}</a></span>`],
-      tip: '接管一位游人走到他身边，可以和他聊几句；台南那道石屏上可以题名。', extra: [['看跋', 'ba'], ['题名', 'wall']] },
+      tip: '接管一位游人走到他身边，可以和他聊几句；题名壁在玉女潭玉光閣西边的路旁。', extra: [['看跋', 'ba'], ['题名', 'wall']] },
     lines: ['有客到了！这一卷从金晶巖一路走到四陽洞，你都看过了吗？',
       '我照着展厅里拍下的十三帧，和 Claude 一起，一山一石、一屋一人地把它搭成了能走进去的山水。',
       '原画接缝处看不清的地方，是我们按画意补的。哪里不像，尽管告诉我。',
-      '身后那道石屏是题名壁。留个名字吧，也算到此一游。'],
+      '玉女潭玉光閣西边路旁有一道石屏，是题名壁。留个名字吧，也算到此一游。'],
     after: 'ba',
   };
   const f = new Figure(def); figs.set(def.id, f);
@@ -251,7 +253,7 @@ export function buildCreditSite({ scene, groundHeight, rockMat, flat, Kit, COL, 
 }
 
 // ---------- 界面：跋、题名壁 ----------
-export function initCreditUI({ onFlyEnd, onWallItems }) {
+export function initCreditUI({ onFlyEnd, onFlyWall, onWallItems }) {
   const ba = $('ba'), tb = $('tibi');
   let items = null, loaded = false;
   const open = (el) => { el.hidden = false; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); };
@@ -264,7 +266,7 @@ export function initCreditUI({ onFlyEnd, onWallItems }) {
   $('tbClose').onclick = () => (tb.hidden = true);
   $('baWall').onclick = openWall;
   $('baGo').onclick = () => { close(); onFlyEnd(); };
-  $('tbGo').onclick = () => { close(); onFlyEnd(); };
+  $('tbGo').onclick = () => { close(); (onFlyWall || onFlyEnd)(); };
   $('tbBa').onclick = openBa;
   for (const el of document.querySelectorAll('[data-open-ba]')) el.addEventListener('click', (e) => { e.preventDefault(); openBa(); });
   ba.addEventListener('pointerdown', (e) => { if (e.target === ba) ba.hidden = true; });
@@ -296,7 +298,7 @@ export function initCreditUI({ onFlyEnd, onWallItems }) {
     try {
       const j = await postName({ name, place, msg: m, hp: $('tbHp').value, t: Date.now() - openedAt });
       try { localStorage.setItem('yydt-tibi', String(Date.now())); } catch (err) {}
-      msg.textContent = j.pending ? '题名已收到，主人过目后就刻上石壁。' : `已刻在卷尾的石壁上：${name}${place ? ' 自' + place + '来游' : ' 到此一游'}。`;
+      msg.textContent = j.pending ? '题名已收到，主人过目后就刻上石壁。' : `已刻在玉女潭边的石屏上：${name}${place ? ' 自' + place + '来游' : ' 到此一游'}。`;
       form.reset();
       if (j.item) { items = [j.item, ...(items || [])]; render(); onWallItems(items); } else refresh(true);
     } catch (err) { msg.textContent = err.message; }

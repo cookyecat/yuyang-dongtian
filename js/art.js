@@ -118,7 +118,7 @@ export function terrainMaterial(tSlope, tRock, lobes = []) {
         // v46 卷尾（IMG_1260、1258）：近处石绿坡，往后是一层层淡赭的远坡（原画上缘），山头不罩石青
         float c4 = smoothstep(-284.,-292.,vW.x), far4 = c4*max(smoothstep(-24.,-44.,vW.z), smoothstep(9.,14.,vRel)*smoothstep(-14.,-22.,vW.z));
         col = mix(col, khaki, far4*.85*smoothstep(1.,6.,vRel));
-        rim *= 1. - .85*c4;
+        rim *= 1. - .85*c4*(1. - .8*smoothstep(26.,40.,vW.z)); // v50 南边合拢的山（z > 26）照玉女潭后山：山体灰青，几个山头罩石青
         // 中景的山（水犀洞左边山梁、四陽洞后面的圆山）：原画是淡石绿，偏青，向阳面发白
         vec3 cel = mix(vec3(.46,.56,.55), vec3(.68,.75,.68), clamp(lit*1.05 + (n2-.5)*.3, 0., 1.));
         col = mix(col, cel, c4*(1. - far4)*smoothstep(1.5,5.,vRel)*smoothstep(-6.,-13.,vW.z)*.8);
