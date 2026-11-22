@@ -1778,11 +1778,16 @@ function pick(cx, cy) {
   const hit = ray.intersectObjects(proxies, false)[0];
   return hit ? hit.object.userData.fig : null;
 }
-function creditPick(cx, cy) { // 卷尾题刻、题名壁：点一下就看
-  if (camera.position.distanceTo(credit.moya.rock.position) > 90) return null;
+function creditPick(cx, cy) { // 卷尾题刻、题名壁（v50 起在玉女潭）：点一下就看
+  // v51 剪枝看离镜头最近的那块石（原来只看卷尾题刻，题名壁挪走后在玉女潭永远点不到、悬停也没提示）
+  if (!credit.pickables.some((r) => camera.position.distanceTo(r.position) < 90)) return null;
   ndc.set((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
   const h = ray.intersectObjects(credit.pickables, false)[0];
-  return h && h.distance < 60 ? h.object.userData.credit : null;
+  if (!h || h.distance > 60) return null;
+  // 石屏矮，中间隔着山坡时不算点中（免得对着坡出提示）
+  const o = ray.ray.origin, d = ray.ray.direction;
+  for (let t = 1; t < h.distance - 1; t += 0.5) if (o.y + d.y * t < groundHeight(o.x + d.x * t, o.z + d.z * t)) return null;
+  return h.object.userData.credit;
 }
 function groundPick(cx, cy) {
   ndc.set((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
@@ -1985,7 +1990,8 @@ function frame() {
     mx += joy.x; mz -= joy.y;
     if (mx || mz || my) { if (!ui.ovBar.hidden) hideOverlay(); }
     c.pos.addScaledVector(fwd, mz * sp).addScaledVector(right, mx * sp); c.pos.y += my * sp * 0.7;
-    c.pos.x = THREE.MathUtils.clamp(c.pos.x, -430, 345); // v49 自由镜头可以飞出望云台，回看崖头 c.pos.z = THREE.MathUtils.clamp(c.pos.z, -160, 80);
+    c.pos.x = THREE.MathUtils.clamp(c.pos.x, -430, 345); // v49 自由镜头可以飞出望云台，回看崖头
+    c.pos.z = THREE.MathUtils.clamp(c.pos.z, -160, 80); // v51 这句原来接在上面注释后头，被一起注释掉了
     c.pos.y = THREE.MathUtils.clamp(c.pos.y, groundHeight(c.pos.x, c.pos.z) + 1.2, 140);
     if (camera.fov !== 50 && !state.view) { camera.fov += (50 - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }
     applyFreeCam();
