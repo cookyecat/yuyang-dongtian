@@ -1687,7 +1687,8 @@ function interactKey() {
 function showZone() {
   const Z = state.zone; if (!Z) return;
   ui.zone.textContent = Z.name; ui.zone.classList.toggle('grey', Z.stage === 'grey');
-  $('zoneTag').textContent = isEn() ? `Zone ${Z.id} of ${ZONES.length}` : { grey: '灰盒', slice: 'P1 切片', ch1: '第一章', ch2: '第二章', ch3: '第三章', ch4: '第四章' }[Z.stage];
+  // v53 区标签按全卷六区编号（原来是开发时的章节和「P1 切片」）
+  $('zoneTag').textContent = isEn() ? `Zone ${Z.id} of ${ZONES.length}` : `第${'一二三四五六七八九'[Z.id - 1]}区`;
   $('zoneEn').textContent = ZONE_EN[Z.id]?.name || '';
 }
 function showStage() { const S = state.stage; ui.stage.textContent = S ? t(S.name, placeEn(S.name)) : ''; }
@@ -1744,7 +1745,7 @@ function drawMap() {
   // 区界
   const en = isEn(), dpr = devicePixelRatio;
   g.fillStyle = 'rgba(42,38,32,.75)'; g.font = en ? `italic ${14 * dpr}px "YY Display", "Source Serif 4", serif` : `${13 * dpr}px "Ma Shan Zheng", serif`; g.textAlign = 'center';
-  for (const Z of ZONES) { g.fillText(en ? ZONE_EN[Z.id]?.short || Z.name : Z.name + (Z.stage === 'slice' ? '（切片）' : ''), X((Z.x0 + Z.x1) / 2), 18 * dpr); g.strokeStyle = 'rgba(42,38,32,.2)'; g.beginPath(); g.moveTo(X(Z.x1), 0); g.lineTo(X(Z.x1), H); g.stroke(); }
+  for (const Z of ZONES) { g.fillText(en ? ZONE_EN[Z.id]?.short || Z.name : Z.name, X((Z.x0 + Z.x1) / 2), 18 * dpr); g.strokeStyle = 'rgba(42,38,32,.2)'; g.beginPath(); g.moveTo(X(Z.x1), 0); g.lineTo(X(Z.x1), H); g.stroke(); }
   // 景点
   mapHits = [];
   STAGES.forEach((S, i) => {
