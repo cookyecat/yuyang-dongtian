@@ -24,10 +24,18 @@ import { buildRocks2, placeBlock, stoneFigureGeometry, craggyRockGeometry, prime
 import { createDayNight, shichen, phaseName } from './daynight.js';
 import { buildCreditSite, initCreditUI, END } from './credit.js';
 import { buildCave, buildRedCompound, buildOpenPavilion, buildSlab, buildPalaceTerrace, buildPalaceStair, buildSlopeWall, buildStrawHut, buildMassif, buildStoneBridge, stoneBridgeDeck } from './zone1.js';
+import { t, isEn, onLang, nameOf, linesOf, cardOf, bindLangButtons } from './i18n.js';
+import { placeEn, ZONE as ZONE_EN, ACTION as ACTION_EN, HOUR as HOUR_EN, PHASE as PHASE_EN } from './lang_en.js';
 
 const $ = (id) => document.getElementById(id);
 // v41 载入：世界是在这一个模块里同步搭起来的（约几秒 CPU）。分段让出主线程，开场画面能先画出来，进度字也能更新
-const step = (t) => { $('loading').textContent = '正在铺绢 · ' + t + '…';
+// v52 中英文：开场框的语言按钮要在世界搭好之前就能点，所以一开头就绑上
+bindLangButtons();
+const STEP_EN = { 起地形: 'raising the land', 筑屋宇: 'building the halls', 叠山石: 'piling up the rocks', 布散石: 'scattering stones', 种林木: 'planting the trees', 上颜色: 'laying on the colours' };
+let stepNow = '';
+const showStep = () => { if (stepNow) $('loading').textContent = t('正在铺绢 · ' + stepNow + '…', 'Unrolling the silk · ' + (STEP_EN[stepNow] || stepNow) + '…'); };
+onLang(showStep);
+const step = (s) => { stepNow = s; showStep();
   return new Promise((r) => { const done = () => setTimeout(r, 0); requestAnimationFrame(done); setTimeout(done, 60); }); };
 const MOBILE = matchMedia('(pointer: coarse)').matches || Math.min(innerWidth, innerHeight) < 560;
 const DEBUG = /debug/.test(location.search) || location.hash === '#debug';
@@ -1520,17 +1528,26 @@ const HINTS = {
   borrow: MOBILE ? '拖动环顾 · 点 × 返回' : '拖动环顾 · Esc 返回',
   fly: '',
 };
-function setHint() { ui.hint.textContent = HINTS[state.mode] ?? ''; document.body.dataset.mode = state.mode; }
+const HINTS_EN = {
+  free: MOBILE ? 'Joystick at lower left to move · drag on the right to look · two fingers to rise or sink · tap a figure' : 'WASD to move · drag to look · Q/E sink, rise · Shift faster · wheel for speed · click a figure to meet them · Tab map · V painting view',
+  focus: MOBILE ? 'Tap “Take his place” to walk as him · tap × to go back' : 'F to take this figure’s place · Esc to go back',
+  control: MOBILE ? 'Joystick to walk · drag to look around · near someone, tap “Act” · tap “Exit” for the free camera' : 'WASD to walk · drag to look around · wheel to zoom · click the ground to walk there · E near someone to interact · Esc to leave',
+  borrow: MOBILE ? 'Drag to look around · tap Back to return' : 'Drag to look around · Esc to go back',
+  fly: '',
+};
+function setHint() { ui.hint.textContent = (isEn() ? HINTS_EN : HINTS)[state.mode] ?? ''; document.body.dataset.mode = state.mode; }
 
 // 题名标签（DOM，竖排）
 const labelEls = [];
 for (const S of STAGES) for (const [txt, x, y, z] of S.labels) {
   const el = document.createElement('div'); el.className = 'label'; el.textContent = txt; ui.labels.appendChild(el);
+  const cap = document.createElement('i'); cap.className = 'en'; cap.textContent = placeEn(txt); el.appendChild(cap); // v52 英文界面在竖排题签下附一行英译
   labelEls.push({ el, v: new THREE.Vector3(x, y, z), stage: S });
 }
 
+let cardFig = null;
 function openCard(f) {
-  const c = f.def.card;
+  const c = cardOf(f.def); cardFig = f;
   ui.cEye.textContent = c.eye; ui.cTitle.textContent = c.title;
   ui.cBody.innerHTML = c.body.map((p) => `<p>${p}</p>`).join('');
   ui.cTip.textContent = c.tip || ''; ui.cTip.hidden = !c.tip;
@@ -1542,7 +1559,7 @@ function openCard(f) {
   $('cImg').src = img; $('cImg').hidden = !img; $('cImg').classList.toggle('cut', !!c.img);
   ui.card.hidden = false;
 }
-function closeCard() { ui.card.hidden = true; }
+function closeCard() { ui.card.hidden = true; cardFig = null; }
 
 function focusFigure(f) {
   if (state.mode === 'control' && state.ctrl === f) return;
@@ -1586,7 +1603,7 @@ function takeControl(f) {
   state.orbit.yaw = f.root.rotation.y + Math.PI; state.orbit.pitch = 0.32; state.orbit.dist = 5.5;
   const tgt = f.root.position.clone().add(new THREE.Vector3(0, 1.4, 0));
   flyTo(orbitPos(tgt), tgt, 52, () => { state.mode = 'control'; setHint(); }, 1.0);
-  $('who').textContent = f.def.name; $('who').hidden = false;
+  $('who').textContent = nameOf(f.def); $('who').hidden = false;
 }
 function releaseControl(toFree = true) {
   const f = state.ctrl; if (!f) return;
@@ -1630,7 +1647,7 @@ function nearestNPC() {
 function openMenu() {
   const t = state.near; if (!t) return;
   state.menu = true; ui.menu.hidden = false;
-  ui.menu.innerHTML = `<div class="mh">与 <b>${t.def.name}</b></div>` + ACTIONS.map((a, i) => `<button data-a="${a.id}"><kbd>${i + 1}</kbd>${a.id === 'walk' && t.followPlayer ? '别跟了' : a.label}</button>`).join('');
+  ui.menu.innerHTML = `<div class="mh">${isEn() ? 'With' : '与'} <b>${nameOf(t.def)}</b></div>` + ACTIONS.map((a, i) => `<button data-a="${a.id}"><kbd>${i + 1}</kbd>${a.id === 'walk' && t.followPlayer ? (isEn() ? 'Stop following' : '别跟了') : (isEn() ? ACTION_EN[a.id] || a.label : a.label)}</button>`).join('');
   ui.menu.querySelectorAll('button').forEach((b) => (b.onclick = () => doAction(b.dataset.a)));
 }
 function closeMenu() { state.menu = false; ui.menu.hidden = true; }
@@ -1642,20 +1659,20 @@ function faceEach(a, b) {
 function doAction(id) {
   const me = state.ctrl, t = state.near; closeMenu(); if (!me || !t) return;
   faceEach(me, t); t.wait = 6; t.speed = 0;
-  if (id === 'bow') { me.play('bow', 2.2); setTimeout(() => t.play('bow', 2.2), 250); say(t, t.def.lines[0] ? '（还礼）' + '幸会。' : '幸会。'); }
+  if (id === 'bow') { me.play('bow', 2.2); setTimeout(() => t.play('bow', 2.2), 250); say(t, isEn() ? '(Bows in return.) An honour to meet you.' : t.def.lines[0] ? '（还礼）' + '幸会。' : '幸会。'); }
   if (id === 'talk') { t.play('talk', 3); openDialog(t); }
-  if (id === 'walk') { t.followPlayer = !t.followPlayer; if (t.followPlayer) { t.pose = 'idle'; say(t, '好，同去走走。'); } else say(t, '那我在这里歇歇。'); }
-  if (id === 'sit') { me.pose = 'sit'; t.pose = 'sit'; t.followPlayer = false; say(t, '请坐。此处风景正好。'); }
+  if (id === 'walk') { t.followPlayer = !t.followPlayer; if (t.followPlayer) { t.pose = 'idle'; say(t, isEn() ? 'Gladly. Let us walk together.' : '好，同去走走。'); } else say(t, isEn() ? 'Then I shall rest here a while.' : '那我在这里歇歇。'); }
+  if (id === 'sit') { me.pose = 'sit'; t.pose = 'sit'; t.followPlayer = false; say(t, isEn() ? 'Please, sit. The view from here is just right.' : '请坐。此处风景正好。'); }
 }
 let sayTimer = 0;
-function say(f, line) { ui.dName.textContent = f.def.name; ui.dLine.textContent = line; ui.dialog.hidden = false; $('dNext').hidden = true; sayTimer = 3; state.dialog = null; }
+function say(f, line) { ui.dName.textContent = nameOf(f.def); ui.dLine.textContent = line; ui.dialog.hidden = false; $('dNext').hidden = true; sayTimer = 3; state.dialog = null; }
 function openDialog(f) { state.dialog = { f, i: 0 }; showLine(); }
 function showLine() {
-  const D = state.dialog; ui.dName.textContent = D.f.def.name; ui.dLine.textContent = D.f.def.lines[D.i]; ui.dialog.hidden = false; $('dNext').hidden = false;
-  $('dNext').textContent = D.i < D.f.def.lines.length - 1 ? (MOBILE ? '点此继续' : 'E / 点击 继续') : (MOBILE ? '点此结束' : 'E / 点击 结束');
+  const D = state.dialog, L = linesOf(D.f.def); ui.dName.textContent = nameOf(D.f.def); ui.dLine.textContent = L[Math.min(D.i, L.length - 1)]; ui.dialog.hidden = false; $('dNext').hidden = false;
+  $('dNext').textContent = D.i < L.length - 1 ? (MOBILE ? t('点此继续', 'Tap to continue') : t('E / 点击 继续', 'E or click to continue')) : (MOBILE ? t('点此结束', 'Tap to close') : t('E / 点击 结束', 'E or click to close'));
   D.f.play('talk', 2.4); sayTimer = 0;
 }
-function nextLine() { const D = state.dialog; if (!D) { closeDialog(); return; } D.i++; if (D.i >= D.f.def.lines.length) { closeDialog(); if (D.f.def.after === 'ba') creditUI.openBa(); } else showLine(); }
+function nextLine() { const D = state.dialog; if (!D) { closeDialog(); return; } D.i++; if (D.i >= linesOf(D.f.def).length) { closeDialog(); if (D.f.def.after === 'ba') creditUI.openBa(); } else showLine(); }
 function closeDialog() { state.dialog = null; ui.dialog.hidden = true; }
 
 function interactKey() {
@@ -1666,16 +1683,24 @@ function interactKey() {
 }
 
 // —— 发现景点 ——
+// 左上角：区名（中文毛笔字，英文界面下面附英译）、区标签、景点名（英文界面写英译）
+function showZone() {
+  const Z = state.zone; if (!Z) return;
+  ui.zone.textContent = Z.name; ui.zone.classList.toggle('grey', Z.stage === 'grey');
+  $('zoneTag').textContent = isEn() ? `Zone ${Z.id} of ${ZONES.length}` : { grey: '灰盒', slice: 'P1 切片', ch1: '第一章', ch2: '第二章', ch3: '第三章', ch4: '第四章' }[Z.stage];
+  $('zoneEn').textContent = ZONE_EN[Z.id]?.name || '';
+}
+function showStage() { const S = state.stage; ui.stage.textContent = S ? t(S.name, placeEn(S.name)) : ''; }
 function checkStage(p) {
   const Z = ZONES.find((Z) => p.x <= Z.x0 && p.x > Z.x1);
-  if (Z && Z !== state.zone) { state.zone = Z; ui.zone.textContent = Z.name; ui.zone.classList.toggle('grey', Z.stage === 'grey'); $('zoneTag').textContent = { grey: '灰盒', slice: 'P1 切片', ch1: '第一章', ch2: '第二章', ch3: '第三章', ch4: '第四章' }[Z.stage]; }
+  if (Z && Z !== state.zone) { state.zone = Z; showZone(); }
   let S = null, bd = 1e9;
   for (const s of STAGES) { const d = Math.hypot(p.x - s.x, p.z - s.z); if (d < s.r && d < bd) { bd = d; S = s; } }
   if (S !== state.stage) {
-    state.stage = S; ui.stage.textContent = S ? S.name : '';
+    state.stage = S; showStage();
     if (S && !state.visited.has(S.id)) {
       state.visited.add(S.id); ui.journal.textContent = `${state.visited.size}/13`;
-      ui.banner.innerHTML = `<span>${S.name.replace('·', '</span><span>')}</span>`; ui.banner.classList.remove('show'); void ui.banner.offsetWidth; ui.banner.classList.add('show');
+      ui.banner.innerHTML = `<div class="v"><span>${S.name.replace('·', '</span><span>')}</span></div><p class="cap en">${placeEn(S.name)}</p>`; ui.banner.classList.remove('show'); void ui.banner.offsetWidth; ui.banner.classList.add('show');
       try { localStorage.setItem('yydt-visited', JSON.stringify([...state.visited])); } catch (e) {}
     }
   }
@@ -1692,7 +1717,7 @@ function paintView(S) {
   state.view = S;
   flyTo(pos, at, v.fov, () => { setCam(pos, at); state.mode = 'free'; setHint(); showOverlayBar(S); }, 2.2);
 }
-function showOverlayBar(S) { ui.ovImg.src = `${A}painting_${S.photo}.jpg`; ui.ovBar.hidden = false; $('ovName').textContent = `${S.name} · IMG_${S.photo}${S.slice || S.fine ? '' : '（灰盒，未对齐）'}`; }
+function showOverlayBar(S) { ui.ovImg.src = `${A}painting_${S.photo}.jpg`; ui.ovBar.hidden = false; $('ovName').textContent = `${t(S.name, placeEn(S.name))} · IMG_${S.photo}${S.slice || S.fine ? '' : t('（灰盒，未对齐）', ' (grey box, not yet aligned)')}`; }
 function hideOverlay() { ui.ovBar.hidden = true; ui.overlay.style.opacity = 0; ui.ovRange.value = 0; state.view = null; }
 ui.ovRange.oninput = () => (ui.overlay.style.opacity = ui.ovRange.value / 100);
 $('ovClose').onclick = hideOverlay;
@@ -1717,23 +1742,37 @@ function drawMap() {
   g.strokeStyle = '#8a5a3a'; g.lineWidth = 2 * devicePixelRatio; g.setLineDash([6, 5]); g.beginPath();
   for (let x = 352; x >= -420; x -= 4) { const p = pathAt(x); x === 352 ? g.moveTo(X(x), Y(p.z)) : g.lineTo(X(x), Y(p.z)); } g.stroke(); g.setLineDash([]);
   // 区界
-  g.fillStyle = 'rgba(42,38,32,.75)'; g.font = `${13 * devicePixelRatio}px "Ma Shan Zheng", serif`; g.textAlign = 'center';
-  for (const Z of ZONES) { g.fillText(Z.name + (Z.stage === 'slice' ? '（切片）' : ''), X((Z.x0 + Z.x1) / 2), 18 * devicePixelRatio); g.strokeStyle = 'rgba(42,38,32,.2)'; g.beginPath(); g.moveTo(X(Z.x1), 0); g.lineTo(X(Z.x1), H); g.stroke(); }
+  const en = isEn(), dpr = devicePixelRatio;
+  g.fillStyle = 'rgba(42,38,32,.75)'; g.font = en ? `italic ${14 * dpr}px "YY Display", "Source Serif 4", serif` : `${13 * dpr}px "Ma Shan Zheng", serif`; g.textAlign = 'center';
+  for (const Z of ZONES) { g.fillText(en ? ZONE_EN[Z.id]?.short || Z.name : Z.name + (Z.stage === 'slice' ? '（切片）' : ''), X((Z.x0 + Z.x1) / 2), 18 * dpr); g.strokeStyle = 'rgba(42,38,32,.2)'; g.beginPath(); g.moveTo(X(Z.x1), 0); g.lineTo(X(Z.x1), H); g.stroke(); }
   // 景点
   mapHits = [];
-  for (const S of STAGES) {
+  STAGES.forEach((S, i) => {
     const x = X(S.x), y = Y(S.z), v = state.visited.has(S.id);
     g.fillStyle = v ? '#b5432f' : 'rgba(42,38,32,.45)'; g.beginPath(); g.arc(x, y, 6 * devicePixelRatio, 0, 7); g.fill();
-    g.fillStyle = '#2a2620'; g.font = `${12 * devicePixelRatio}px "Noto Serif SC", serif`; g.fillText(S.name.split('·')[0], x, y + 20 * devicePixelRatio);
+    g.fillStyle = '#2a2620';
+    if (!en) { g.font = `${12 * devicePixelRatio}px "Noto Serif SC", serif`; g.fillText(S.name.split('·')[0], x, y + 20 * devicePixelRatio); }
+    else { // 英文名长：按词折成几行，相邻景点一上一下错开，免得叠在一起
+      g.font = `${11 * dpr}px "Source Serif 4", "Noto Serif SC", serif`;
+      const words = placeEn(S.name.split('·')[0]).split(' '), lines = [];
+      for (const w of words) { const L = lines.length ? lines[lines.length - 1] + ' ' + w : w; if (lines.length && g.measureText(L).width <= 78 * dpr) lines[lines.length - 1] = L; else lines.push(w); }
+      const lh = 12.5 * dpr, up = i % 2 === 1;
+      lines.forEach((L, k) => g.fillText(L, x, up ? y - 11 * dpr - (lines.length - 1 - k) * lh : y + 19 * dpr + k * lh));
+    }
     mapHits.push({ x: x / devicePixelRatio, y: y / devicePixelRatio, S });
-  }
+  });
   // 我在哪
   const me = state.ctrl ? state.ctrl.root.position : camera.position;
   g.fillStyle = '#2f6f9a'; g.beginPath(); g.arc(X(me.x), Y(me.z), 7 * devicePixelRatio, 0, 7); g.fill();
   g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke();
 }
 let mapHits = [];
-function toggleMap(v = !mapOpen) { mapOpen = v; ui.map.hidden = !v; if (v) drawMap(); }
+function toggleMap(v = !mapOpen) {
+  mapOpen = v; ui.map.hidden = !v; if (!v) return;
+  drawMap();
+  // 英文界面的游线图用拉丁字体画在画布上：字体还没到的话，到了再画一遍
+  if (isEn() && document.fonts) Promise.all([document.fonts.load('italic 14px "YY Display"'), document.fonts.load('11px "Source Serif 4"')]).then(() => mapOpen && drawMap()).catch(() => {});
+}
 ui.mapCv.addEventListener('click', (e) => {
   const r = ui.mapCv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
   const h = mapHits.find((m) => Math.hypot(m.x - x, m.y - y) < 18);
@@ -1864,7 +1903,7 @@ cv.addEventListener('wheel', (e) => {
   if (state.mode === 'control') state.orbit.dist = THREE.MathUtils.clamp(state.orbit.dist * (1 + Math.sign(e.deltaY) * 0.1), 2.2, 16);
   else if (state.mode === 'free') { state.cam.speed = THREE.MathUtils.clamp(state.cam.speed * (1 - Math.sign(e.deltaY) * 0.15), 3, 80); flashSpeed(); }
 }, { passive: false });
-let speedT = 0; function flashSpeed() { $('speed').textContent = `速度 ${state.cam.speed.toFixed(0)} 米/秒`; $('speed').hidden = false; speedT = 1.2; }
+let speedT = 0; function flashSpeed() { $('speed').textContent = t(`速度 ${state.cam.speed.toFixed(0)} 米/秒`, `Speed ${state.cam.speed.toFixed(0)} m/s`); $('speed').hidden = false; speedT = 1.2; }
 function look(dx, dy) {
   const k = MOBILE ? 0.0055 : 0.0035;
   if (state.mode === 'free' || state.mode === 'borrow') { state.cam.yaw += dx * k; state.cam.pitch = THREE.MathUtils.clamp(state.cam.pitch - dy * k, -1.35, 1.35); if (state.mode === 'free' && !ui.ovBar.hidden) hideOverlay(); }
@@ -1877,8 +1916,8 @@ function hover(x, y) {
   const f = pick(x, y);
   if (hovered && hovered !== f && hovered !== state.focus) hovered.hl = 0;
   hovered = f; const cs = f ? null : creditPick(x, y); cv.style.cursor = f || cs ? 'pointer' : '';
-  if (f && f !== state.ctrl) { f.hl = 0.7; ui.tag.textContent = f.def.name; ui.tag.hidden = false; ui.tag.style.left = x + 'px'; ui.tag.style.top = y - 18 + 'px'; }
-  else if (cs) { ui.tag.textContent = cs === 'ba' ? '作者题刻 · 点开看跋' : '题名壁 · 点开留名'; ui.tag.hidden = false; ui.tag.style.left = x + 'px'; ui.tag.style.top = y - 18 + 'px'; }
+  if (f && f !== state.ctrl) { f.hl = 0.7; ui.tag.textContent = nameOf(f.def); ui.tag.hidden = false; ui.tag.style.left = x + 'px'; ui.tag.style.top = y - 18 + 'px'; }
+  else if (cs) { ui.tag.textContent = cs === 'ba' ? t('作者题刻 · 点开看跋', 'The makers’ inscription · click for the colophon') : t('题名壁 · 点开留名', 'Inscription wall · click to sign'); ui.tag.hidden = false; ui.tag.style.left = x + 'px'; ui.tag.style.top = y - 18 + 'px'; }
   else ui.tag.hidden = true;
 }
 
@@ -1891,7 +1930,11 @@ $('btnMap').onclick = () => toggleMap();
 $('btnView').onclick = () => paintView(nearestStage(state.ctrl ? state.ctrl.root.position : camera.position));
 $('btnHelp').onclick = () => ($('help').hidden = !$('help').hidden);
 // v38 时辰：按钮显示当前时辰，点开一个小面板拨时辰、停住或让它流转
-function updateClockUI() { const h = DN.S.hour; $('btnClock').innerHTML = `${shichen(h)}<span class="t">${phaseName(h)}</span>`; $('dnRange').value = h.toFixed(2); $('dnAuto').checked = DN.S.auto; }
+function updateClockUI() { const h = DN.S.hour, sc = shichen(h), ph = phaseName(h);
+  if (isEn()) { // 英文界面：时辰仍写中文（毛笔字），旁边写英文的一天里什么时候；悬停说是哪个生肖的时辰、几点到几点
+    const [an, span] = HOUR_EN[sc[0]] || ['', '']; $('btnClock').innerHTML = `${sc}<span class="t">${PHASE_EN[ph] || ph}</span>`;
+    $('btnClock').title = `Hour of the ${an} (${span}) · T for the next time of day`;
+  } else { $('btnClock').innerHTML = `${sc}<span class="t">${ph}</span>`; $('btnClock').title = '时辰（T 拨到下一个时辰）'; } $('dnRange').value = h.toFixed(2); $('dnAuto').checked = DN.S.auto; }
 $('btnClock').onclick = () => { $('dnPanel').hidden = !$('dnPanel').hidden; updateClockUI(); };
 $('dnRange').oninput = (e) => { DN.setHour(+e.target.value); updateClockUI(); };
 $('dnAuto').onchange = (e) => { DN.S.auto = e.target.checked; };
@@ -2027,8 +2070,9 @@ function frame() {
     if (n !== state.near) { state.near = n; if (!n) closeMenu(); }
     state.site = n ? null : credit.nearSite(f.root.position);
     ui.prompt.hidden = (!n && !state.site) || state.menu || !!state.dialog;
-    if (n) ui.prompt.innerHTML = MOBILE ? `点“互动”与${n.def.name}` : `<kbd>E</kbd> 与${n.def.name}互动`;
-    else if (state.site) ui.prompt.innerHTML = (MOBILE ? '点“互动”' : '<kbd>E</kbd> ') + (state.site === 'ba' ? '读崖上题刻' : '在题名壁留名');
+    if (n) ui.prompt.innerHTML = isEn() ? (MOBILE ? `Tap “Act” · ${nameOf(n.def)}` : `<kbd>E</kbd> Interact · ${nameOf(n.def)}`) : MOBILE ? `点“互动”与${n.def.name}` : `<kbd>E</kbd> 与${n.def.name}互动`;
+    else if (state.site) ui.prompt.innerHTML = isEn() ? (MOBILE ? 'Tap “Act” · ' : '<kbd>E</kbd> ') + (state.site === 'ba' ? 'Read the inscription on the cliff' : 'Sign the inscription wall')
+      : (MOBILE ? '点“互动”' : '<kbd>E</kbd> ') + (state.site === 'ba' ? '读崖上题刻' : '在题名壁留名');
     $('mAct').disabled = !n && !state.site && !state.dialog;
     // 惊鹤
     for (const c of cranes) if (c.root.position.distanceTo(f.root.position) < 3.5) c.startle();
@@ -2134,6 +2178,19 @@ function flyWall() { // v50 题名壁在玉女潭
   flyTo(pos, at, v.fov, () => { setCam(pos, at); state.mode = 'free'; setHint(); }, 2.4);
 }
 const creditUI = initCreditUI({ onFlyEnd: flyEnd, onFlyWall: flyWall, onWallItems: (items) => credit.setWall(items) });
+// v52 切换语言：静态文案 CSS 已经换好，这里把正显示着的动态文案重画一遍
+onLang(() => {
+  setHint(); showZone(); showStage(); updateClockUI();
+  if (cardFig && !ui.card.hidden) openCard(cardFig);
+  if (state.dialog) showLine(); else if (!ui.dialog.hidden) ui.dialog.hidden = true;
+  if (state.menu) openMenu();
+  if (state.ctrl) $('who').textContent = nameOf(state.ctrl.def);
+  if (state.view && !ui.ovBar.hidden) showOverlayBar(state.view);
+  if (!$('speed').hidden) flashSpeed();
+  ui.tag.hidden = true;
+  if (mapOpen) toggleMap(true);
+});
+
 $('goHead').onclick = () => { $('intro').hidden = true; const S = STAGES[0]; paintView(S); };
 document.fonts && document.fonts.ready.then(() => {});
 DN.finalize({ pond: POND });

@@ -2,6 +2,7 @@
 // v49 卷尾峡谷撤掉：游线尽头是一片临崖的望云台，台外云海。作者的题刻刻在台北一面立崖上迎着来路，画师坐在崖沿对着云海写生。
 // v50 游人的题名壁挪到玉女潭（开场就在这里，人人路过）：玉光閣西边游线南侧一道低石屏。题名的数据存在 Cloudflare Worker（见 guestbook/），地址写在 index.html 的 <meta name="yy-guestbook">。
 import * as THREE from 'three';
+import { t, isEn, onLang } from './i18n.js';
 
 export const AUTHOR = {
   cn: '李揚', en: 'YANG LI', partner: 'Claude',
@@ -49,9 +50,32 @@ async function fetchNames(limit = 80) {
 async function postName(body) {
   const r = await fetch(`${API}/api/names`, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   let j = {}; try { j = await r.json(); } catch (e) {}
-  if (!r.ok) throw new Error(j.error || '题壁没有成功，稍后再试');
+  if (!r.ok) throw new Error(errEn(j.error || '题壁没有成功，稍后再试'));
   return j;
 }
+// v52 后端（guestbook/src/worker.js）回的错误是中文；英文界面按原句换成英文，对不上的给一句通用的
+const ERR_EN = {
+  只能在游园页面里题名: 'Names can only be signed from within the garden walk.',
+  石壁一时刻不上稍后再试: 'The stone will not take the chisel just now. Please try again later.',
+  写得太长了: 'That is too long for the stone.',
+  看不懂这条题名: 'That inscription could not be read.',
+  慢一点从容落笔: 'Not so fast. Take your time with the brush.',
+  先写下名字: 'Write your name first.',
+  石壁上不留网址电话和账号: 'No web addresses, phone numbers or account names on the wall, please.',
+  这几个字不宜刻上石壁换个说法吧: 'Those words are not fit for the stone. Try saying it another way.',
+  刚题过了歇一会儿再来: 'You have only just signed. Rest a moment before signing again.',
+  今天题得够多了明天再来: 'You have signed enough for one day. Come back tomorrow.',
+  今天石壁已经题满了明天再来: 'The wall is full for today. Come back tomorrow.',
+  这一条已经刻在壁上了: 'That one is already carved on the wall.',
+};
+function errEn(m) {
+  if (!isEn()) return m;
+  const k = String(m).replace(/[\s，。、,.!！]/g, '');
+  if (ERR_EN[k]) return ERR_EN[k];
+  if (/^名字最多/.test(k)) return 'A name may be up to 12 characters, a place up to 10, and a line up to 20.';
+  return 'The inscription did not go through. Please try again later.';
+}
+const dateEn = (ts) => new Date(ts).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
 
 // ---------- 刻字画布 ----------
 // 阴刻：先在右下方压一道浅色（刀口受光），再填墨
@@ -208,6 +232,15 @@ export function buildCreditSite({ scene, groundHeight, rockMat, flat, Kit, COL, 
       '原画接缝处看不清的地方，是我们按画意补的。哪里不像，尽管告诉我。',
       '玉女潭玉光閣西边路旁有一道石屏，是题名壁。留个名字吧，也算到此一游。'],
     after: 'ba',
+    en: { name: 'Painter', // v52 英文界面
+      card: { eye: 'Scroll’s End · Cloud-Viewing Terrace', title: 'The Painter on the Cliff',
+        body: ['The path ends at a terrace on the cliff edge, with a boundless sea of clouds beyond. A painter sits at the brink with paper spread before him, sketching, and what he paints is this very scroll. He is not in the original: he is the shadow that the makers of this garden walk have left inside the painting.',
+          `<span class="cr">Made by Yang Li with ${AUTHOR.partner} · <a href="${AUTHOR.github}" target="_blank" rel="noopener">GitHub</a> · <a href="${AUTHOR.x}" target="_blank" rel="noopener">X ${AUTHOR.xName}</a></span>`],
+        tip: 'Walk a figure over to him for a few words. The inscription wall stands beside the path west of the Jade Light Tower, at the Jade Maiden Pool.', extra: [['Colophon', 'ba'], ['Sign the wall', 'wall']] },
+      lines: ['A visitor! Have you seen the whole scroll, all the way from Golden Crystal Cliff to Siyang Cave?',
+        'From thirteen photographs taken in the gallery, Claude and I built it, mountain by mountain and stone by stone, house by house and figure by figure, into a landscape you can walk into.',
+        'Where the seams hid the painting, we filled in what its brush suggested. If anything looks wrong, do tell me.',
+        'Beside the path west of the Jade Light Tower, at the Jade Maiden Pool, stands a stone screen: the inscription wall. Leave your name there, and the world will know you were here.'] },
   };
   const f = new Figure(def); figs.set(def.id, f);
   f.root.position.set(P.x, groundHeight(P.x, P.z), P.z); f.root.rotation.y = f.heading = P.face;
@@ -275,30 +308,35 @@ export function initCreditUI({ onFlyEnd, onFlyWall, onWallItems }) {
 
   const list = $('tbList'), msg = $('tbMsg'), form = $('tbForm');
   function render() {
-    if (!API) { list.innerHTML = '<p class="tb-empty">题名壁不日开放。</p>'; form.classList.add('off'); return; }
-    if (!items) { list.innerHTML = '<p class="tb-empty">正在拓印石壁上的题名…</p>'; return; }
-    if (!items.length) { list.innerHTML = '<p class="tb-empty">还没有人题名，候君落笔。</p>'; return; }
+    if (!API) { list.innerHTML = `<p class="tb-empty">${t('题名壁不日开放。', 'The inscription wall opens soon.')}</p>`; form.classList.add('off'); return; }
+    if (!items) { list.innerHTML = `<p class="tb-empty">${t('正在拓印石壁上的题名…', 'Taking rubbings of the names on the stone…')}</p>`; return; }
+    if (!items.length) { list.innerHTML = `<p class="tb-empty">${t('还没有人题名，候君落笔。', 'No one has signed yet. The first stroke is yours.')}</p>`; return; }
     const lat = (t) => (/^[\x20-\x7e]+$/.test(t) ? ' class="lat"' : '');
-    list.innerHTML = items.map((it) => `<div class="tb-col"><b${lat(it.name)}>${esc(it.name)}</b>${it.msg ? `<i${lat(it.msg)}>${esc(it.msg)}</i>` : ''}<span>${it.place ? '自' + esc(it.place) + '来游' : '到此一游'} · ${ganzhiDate(it.ts)}</span></div>`).join('');
+    const sub = (it) => (isEn() ? `${it.place ? 'from ' + esc(it.place) : 'was here'} · ${dateEn(it.ts)}` : `${it.place ? '自' + esc(it.place) + '来游' : '到此一游'} · ${ganzhiDate(it.ts)}`);
+    list.innerHTML = items.map((it) => `<div class="tb-col"><b${lat(it.name)}>${esc(it.name)}</b>${it.msg ? `<i${lat(it.msg)}>${esc(it.msg)}</i>` : ''}<span>${sub(it)}</span></div>`).join('');
   }
+  let offline = false;
+  onLang(() => { msg.textContent = ''; if (offline) showOffline(); else render(); }); // v52 切换语言时重画列表
+  const showOffline = () => { list.innerHTML = `<p class="tb-empty">${t('石壁一时看不清（网络不通），稍后再来。', 'The wall cannot be read just now (no connection). Please come back later.')}</p>`; };
   async function refresh(force) {
     if (!API) { render(); return; }
     if (loaded && !force) { render(); return; }
     render();
-    try { const j = await fetchNames(); items = j.items || []; loaded = true; render(); onWallItems(items); }
-    catch (e) { list.innerHTML = '<p class="tb-empty">石壁一时看不清（网络不通），稍后再来。</p>'; }
+    try { const j = await fetchNames(); items = j.items || []; loaded = true; offline = false; render(); onWallItems(items); }
+    catch (e) { offline = true; showOffline(); }
   }
   form.addEventListener('submit', async (e) => {
     e.preventDefault(); if (!API) return;
     const name = $('tbName').value.trim(), place = $('tbPlace').value.trim(), m = $('tbText').value.trim();
-    if (!name) { msg.textContent = '先写下名字。'; return; }
+    if (!name) { msg.textContent = t('先写下名字。', 'Write your name first.'); return; }
     let last = 0; try { last = +localStorage.getItem('yydt-tibi') || 0; } catch (err) {}
-    if (Date.now() - last < 60000) { msg.textContent = '刚题过了，歇一会儿再来。'; return; }
-    msg.textContent = '正在刻…'; form.querySelector('button').disabled = true;
+    if (Date.now() - last < 60000) { msg.textContent = t('刚题过了，歇一会儿再来。', 'You have only just signed. Rest a moment before signing again.'); return; }
+    msg.textContent = t('正在刻…', 'Carving…'); form.querySelector('button').disabled = true;
     try {
       const j = await postName({ name, place, msg: m, hp: $('tbHp').value, t: Date.now() - openedAt });
       try { localStorage.setItem('yydt-tibi', String(Date.now())); } catch (err) {}
-      msg.textContent = j.pending ? '题名已收到，主人过目后就刻上石壁。' : `已刻在玉女潭边的石屏上：${name}${place ? ' 自' + place + '来游' : ' 到此一游'}。`;
+      msg.textContent = j.pending ? t('题名已收到，主人过目后就刻上石壁。', 'Received. Your name will be carved once the host has looked it over.')
+        : t(`已刻在玉女潭边的石屏上：${name}${place ? ' 自' + place + '来游' : ' 到此一游'}。`, `Carved on the stone screen by the Jade Maiden Pool: “${name}${place ? ', from ' + place : ' was here'}”.`);
       form.reset();
       if (j.item) { items = [j.item, ...(items || [])]; render(); onWallItems(items); } else refresh(true);
     } catch (err) { msg.textContent = err.message; }
