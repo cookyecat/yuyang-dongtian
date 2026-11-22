@@ -4,7 +4,7 @@
 
 **作者**：李揚 YANG LI 与 Claude · GitHub [@cookyecat](https://github.com/cookyecat) · X [@myannli](https://x.com/myannli)
 
-游到卷尾四陽洞外的峡谷尽头，崖上有作者题刻，北壁是游人的「题名壁」，可以留下名字（后端见 `guestbook/`）。
+游到卷尾四陽洞外的望云台，立崖上有作者题刻。游人的「题名壁」在玉女潭玉光閣西边的路旁，可以留下名字（后端见 `guestbook/`）。
 
 - 电脑：WASD 移动，按住鼠标拖动转向，Tab 看游线图，V 画境视角，T 拨时辰，H 查看全部操作
 - 手机：左下按住出摇杆，右侧拖动转向，双指上下拖动升降
