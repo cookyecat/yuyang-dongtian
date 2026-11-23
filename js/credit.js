@@ -33,6 +33,21 @@ export function ganzhiDate(ts) {
   return GAN[(y - 4) % 10] + ZHI[(y - 4) % 12] + '年' + NUM[d.getMonth() + 1] + '月';
 }
 
+// ---------- 题名字数 ----------
+// v54 按字宽算，不按字数：汉字、假名、谚文、全角符号、表情算 2，西文字母、数字、空格、半角标点算 1。
+// 中文上限照旧（名字 12、来自 10、留一句 20 个汉字），英文可写到 24、20、40 个字母（Sarah Campbell、University of Galway 都放得下）。
+// 后端 guestbook/src/worker.js 用同一套算法（那边是单独部署的，代码抄了一份），两边改要一起改。
+export const TB_MAX = { name: 24, place: 20, msg: 40 };
+const wideCp = (c) => (c >= 0x1100 && c <= 0x115f) || (c >= 0x2e80 && c <= 0xa4cf) || (c >= 0xac00 && c <= 0xd7a3) || (c >= 0xf900 && c <= 0xfaff)
+  || (c >= 0xfe30 && c <= 0xfe4f) || (c >= 0xff00 && c <= 0xff60) || (c >= 0xffe0 && c <= 0xffe6) || c >= 0x1f000;
+export function textWidth(s) { let n = 0; for (const ch of String(s)) n += wideCp(ch.codePointAt(0)) ? 2 : 1; return n; }
+function clipWidth(s, max) { let n = 0, out = ''; for (const ch of s) { n += wideCp(ch.codePointAt(0)) ? 2 : 1; if (n > max) break; out += ch; } return out; }
+// 跟后端一样清洗后再量：全角半角统一、去掉控制字符和零宽字符、合并空白
+const tidy = (s) => String(s ?? '').normalize('NFKC').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, '').replace(/\s+/g, ' ').trim();
+// 一段西文（拉丁字母连同中间的空格、半角标点）：竖排时整段侧过来写，不拆成单个字母
+const LAT = '[\\p{Script=Latin}\\x21-\\x7e\\u2018\\u2019\\u201c\\u201d]+(?: +[\\p{Script=Latin}\\x21-\\x7e\\u2018\\u2019\\u201c\\u201d]+)*';
+const LAT_SPLIT = new RegExp(`${LAT}|.`, 'gsu'), LAT_ONE = new RegExp(`^${LAT}$`, 'u');
+
 // ---------- 题名壁后端 ----------
 function apiBase() {
   const q = new URLSearchParams(location.search).get('gb');
@@ -72,7 +87,7 @@ function errEn(m) {
   if (!isEn()) return m;
   const k = String(m).replace(/[\s，。、,.!！]/g, '');
   if (ERR_EN[k]) return ERR_EN[k];
-  if (/^名字最多/.test(k)) return 'A name may be up to 12 characters, a place up to 10, and a line up to 20.';
+  if (/^名字最多/.test(k)) return `Too long for the stone: a name may be up to ${TB_MAX.name} letters, a place up to ${TB_MAX.place}, and a line up to ${TB_MAX.msg} (Chinese characters count double).`;
   return 'The inscription did not go through. Please try again later.';
 }
 const dateEn = (ts) => new Date(ts).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
@@ -83,19 +98,22 @@ function carve(g, ch, x, y, size, ink = 'rgba(38,33,26,.9)') {
   g.fillStyle = 'rgba(250,244,226,.32)'; g.fillText(ch, x + size * 0.035, y + size * 0.035);
   g.fillStyle = ink; g.fillText(ch, x, y);
 }
-// 竖排一列，西文词旋转 90°
+// 竖排一列，西文旋转 90°：v54 起一整段西文（连同词间空格、带重音的字母）一起侧过来，不再一个词一转、重音字母竖着插在中间。
+// ink 为空时只量不画，返回这一列排到哪里
 function vline(g, text, x, y, size, font, ink, gap = 1.04) {
-  const parts = text.match(/[A-Za-z0-9@._-]+|./gu) || [];
+  const parts = text.match(LAT_SPLIT) || [];
   let yy = y; g.textAlign = 'center'; g.textBaseline = 'top';
   for (const p of parts) {
     if (p === ' ') { yy += size * 0.45; continue; }
-    if (/^[A-Za-z0-9@._-]+$/.test(p)) {
+    if (LAT_ONE.test(p)) {
       g.font = `${size * 0.82}px ${font}`; const w = g.measureText(p).width;
-      g.save(); g.translate(x, yy + w / 2 + size * 0.08); g.rotate(Math.PI / 2); g.textBaseline = 'middle';
-      carve(g, p, 0, 0, size * 0.82, ink); g.restore(); g.textBaseline = 'top';
+      if (ink) {
+        g.save(); g.translate(x, yy + w / 2 + size * 0.08); g.rotate(Math.PI / 2); g.textBaseline = 'middle';
+        carve(g, p, 0, 0, size * 0.82, ink); g.restore(); g.textBaseline = 'top';
+      }
       yy += w + size * 0.22; continue;
     }
-    g.font = `${size}px ${font}`; carve(g, p, x, yy, size, ink); yy += size * gap;
+    g.font = `${size}px ${font}`; if (ink) carve(g, p, x, yy, size, ink); yy += size * gap;
   }
   return yy;
 }
@@ -146,14 +164,22 @@ function wallTexture(items) { // 北壁题名：右起，大字「题名壁」�
   if (!items || !items.length) {
     vline(g, API ? '尚无人题名 候君落笔' : '题名壁不日开放', x, 120, 64, BRUSH, 'rgba(34,30,24,.55)');
   } else {
+    // v54 每条先量再排：名字和「自某地来游 某年某月」一列放得下就照旧（小字接在名字下面）；
+    // 放不下（名字长、地名长，英文尤其）就把这行小字挪到名字左边另起一列，留言再往左一列。哪一列单独也放不下，就缩字
+    const TOP = 70, BOT = H - 46;
+    const len = (text, size) => vline(g, text, 0, 0, size, KAI, null);
+    const fit = (text, size, y0) => { const L = len(text, size); return y0 + L <= BOT ? size : size * Math.max(0.5, (BOT - y0) / L); };
     for (const it of items) {
       if (x < 70) break;
-      const nameSize = [...it.name].length > 6 ? 54 : 70;
-      let yy = vline(g, it.name, x, 70, nameSize, KAI, 'rgba(30,26,20,.9)');
+      const nameSize = fit(it.name, [...it.name].length > 6 ? 54 : 70, TOP);
+      const yy = vline(g, it.name, x, TOP, nameSize, KAI, 'rgba(30,26,20,.9)');
       const sub = (it.place ? `自${it.place}来游 ` : '到此一游 ') + ganzhiDate(it.ts);
-      if (it.msg) { vline(g, it.msg, x - 40, 70 + nameSize * 0.6, 34, KAI, 'rgba(30,26,20,.72)'); }
-      vline(g, sub, x + (it.msg ? 22 : 0), Math.max(yy + 20, 70 + nameSize * 2), 32, KAI, 'rgba(30,26,20,.7)');
-      x -= it.msg ? 128 : 96;
+      const subY = Math.max(yy + 20, TOP + nameSize * 2), small = TOP + nameSize * 0.6;
+      let cx = x - nameSize * 0.5 - 22, last = x; // 小字列离名字半个大字再空一点，大字（70）也不会压到
+      if (subY + len(sub, 32) <= BOT) vline(g, sub, x + (it.msg ? 22 : 0), subY, 32, KAI, 'rgba(30,26,20,.7)');
+      else { vline(g, sub, cx, small, fit(sub, 32, small), KAI, 'rgba(30,26,20,.7)'); last = cx; cx -= 38; }
+      if (it.msg) { vline(g, it.msg, cx, small, fit(it.msg, 34, small), KAI, 'rgba(30,26,20,.72)'); last = cx; }
+      x = last === x ? x - 96 : last - 88;
     }
   }
   const t = new THREE.CanvasTexture(c); t.anisotropy = 8; return t;
@@ -311,9 +337,11 @@ export function initCreditUI({ onFlyEnd, onFlyWall, onWallItems }) {
     if (!API) { list.innerHTML = `<p class="tb-empty">${t('题名壁不日开放。', 'The inscription wall opens soon.')}</p>`; form.classList.add('off'); return; }
     if (!items) { list.innerHTML = `<p class="tb-empty">${t('正在拓印石壁上的题名…', 'Taking rubbings of the names on the stone…')}</p>`; return; }
     if (!items.length) { list.innerHTML = `<p class="tb-empty">${t('还没有人题名，候君落笔。', 'No one has signed yet. The first stroke is yours.')}</p>`; return; }
-    const lat = (t) => (/^[\x20-\x7e]+$/.test(t) ? ' class="lat"' : '');
-    const sub = (it) => (isEn() ? `${it.place ? 'from ' + esc(it.place) : 'was here'} · ${dateEn(it.ts)}` : `${it.place ? '自' + esc(it.place) + '来游' : '到此一游'} · ${ganzhiDate(it.ts)}`);
-    list.innerHTML = items.map((it) => `<div class="tb-col"><b${lat(it.name)}>${esc(it.name)}</b>${it.msg ? `<i${lat(it.msg)}>${esc(it.msg)}</i>` : ''}<span>${sub(it)}</span></div>`).join('');
+    // 纯西文整段侧过来（class="lat"）；中西混排时汉字一个一行，夹在中间的西文整段侧过来（<em class="lr">），不拆成单个字母
+    const vt = (tag, s) => (LAT_ONE.test(s) ? `<${tag} class="lat">${esc(s)}</${tag}>`
+      : `<${tag}>${(s.match(LAT_SPLIT) || []).map((p) => (LAT_ONE.test(p) ? `<em class="lr">${esc(p)}</em>` : esc(p))).join('')}</${tag}>`);
+    const sub = (it) => (isEn() ? `${it.place ? 'from ' + it.place : 'was here'} · ${dateEn(it.ts)}` : `${it.place ? '自' + it.place + '来游' : '到此一游'} · ${ganzhiDate(it.ts)}`);
+    list.innerHTML = items.map((it) => `<div class="tb-col">${vt('b', it.name)}${it.msg ? vt('i', it.msg) : ''}${vt('span', sub(it))}</div>`).join('');
   }
   let offline = false;
   onLang(() => { msg.textContent = ''; if (offline) showOffline(); else render(); }); // v52 切换语言时重画列表
@@ -325,10 +353,20 @@ export function initCreditUI({ onFlyEnd, onFlyWall, onWallItems }) {
     try { const j = await fetchNames(); items = j.items || []; loaded = true; offline = false; render(); onWallItems(items); }
     catch (e) { offline = true; showOffline(); }
   }
+  // v54 字数按字宽卡：写满了就不再往下收，并提示一句（拼音输入法选字的过程中不截，选完再看）
+  const FIELDS = [['tbName', 'name', '名字'], ['tbPlace', 'place', '来自'], ['tbText', 'msg', '留一句']];
+  const fullNote = (k, zh) => t(`${zh}最多 ${TB_MAX[k] / 2} 个汉字（或 ${TB_MAX[k]} 个字母）。`, `That is as long as it goes: up to ${TB_MAX[k]} letters (Chinese characters count double).`);
+  for (const [id, k, zh] of FIELDS) {
+    const el = $(id);
+    const clamp = () => { if (textWidth(el.value) > TB_MAX[k]) { el.value = clipWidth(el.value, TB_MAX[k]); msg.textContent = fullNote(k, zh); } };
+    el.addEventListener('input', (e) => { if (!e.isComposing) clamp(); });
+    el.addEventListener('compositionend', clamp);
+  }
   form.addEventListener('submit', async (e) => {
     e.preventDefault(); if (!API) return;
-    const name = $('tbName').value.trim(), place = $('tbPlace').value.trim(), m = $('tbText').value.trim();
+    const name = tidy($('tbName').value), place = tidy($('tbPlace').value), m = tidy($('tbText').value);
     if (!name) { msg.textContent = t('先写下名字。', 'Write your name first.'); return; }
+    for (const [, k, zh] of FIELDS) if (textWidth({ name, place, msg: m }[k]) > TB_MAX[k]) { msg.textContent = fullNote(k, zh); return; }
     let last = 0; try { last = +localStorage.getItem('yydt-tibi') || 0; } catch (err) {}
     if (Date.now() - last < 60000) { msg.textContent = t('刚题过了，歇一会儿再来。', 'You have only just signed. Rest a moment before signing again.'); return; }
     msg.textContent = t('正在刻…', 'Carving…'); form.querySelector('button').disabled = true;

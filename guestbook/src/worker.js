@@ -7,7 +7,9 @@
 //   POST /api/admin/delete {id}       删除
 import { BANNED } from './words.js';
 
-const MAX = { name: 12, place: 10, msg: 20 };
+// 字数按字宽算（v54）：汉字、假名、谚文、全角符号、表情算 2，西文字母、数字、空格、半角标点算 1。
+// 中文上限照旧（名字 12、来自 10、留言 20 个汉字），英文可写 24、20、40 个字母。前端 js/credit.js 是同一套算法，两边改要一起改
+const MAX = { name: 24, place: 20, msg: 40 };
 const MIN_FILL_MS = 2500;            // 打开题名框不到 2.5 秒就提交的，多半是脚本
 const PER_IP_GAP_MS = 60 * 1000;     // 同一人两次题名至少隔 1 分钟
 const PER_IP_DAY = 5;                // 同一人一天最多 5 条
@@ -57,8 +59,11 @@ async function list(url, env, cors) {
 // 清洗：统一全角半角、去掉控制字符和零宽字符、合并空白
 function clean(s, max) {
   s = String(s ?? '').normalize('NFKC').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g, '').replace(/\s+/g, ' ').trim();
-  return [...s].length > max ? null : s;
+  return textWidth(s) > max ? null : s;
 }
+const wideCp = (c) => (c >= 0x1100 && c <= 0x115f) || (c >= 0x2e80 && c <= 0xa4cf) || (c >= 0xac00 && c <= 0xd7a3) || (c >= 0xf900 && c <= 0xfaff)
+  || (c >= 0xfe30 && c <= 0xfe4f) || (c >= 0xff00 && c <= 0xff60) || (c >= 0xffe0 && c <= 0xffe6) || c >= 0x1f000;
+function textWidth(s) { let n = 0; for (const ch of s) n += wideCp(ch.codePointAt(0)) ? 2 : 1; return n; }
 // 比对用：小写、去掉一切空白、标点和符号
 const squash = (s) => s.toLowerCase().replace(/[\s\p{P}\p{S}_]/gu, '');
 const ASCII_WORD = /^[a-z0-9]+$/;
@@ -72,7 +77,7 @@ function badWord(text) {
 }
 // 联系方式、网址
 function looksLikeContact(text) {
-  return /(https?:|www\.|\.(com|cn|net|org|io|xyz|top|me|cc)\b|@[a-z0-9_]{2,}|\d{5,}|微信|wechat|whatsapp|line\s*id)/i.test(text);
+  return /(https?:|www\.|\.(com|cn|net|org|io|xyz|top|me|cc)\b|@[a-z0-9_]{2,}|\d{5,}|微信|wechat|whatsapp|\bline\s*id\b)/i.test(text);
 }
 async function sha(s) {
   const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
@@ -86,7 +91,7 @@ async function create(req, env, cors) {
   if (b.hp) return json({ ok: true }, 200, cors); // 蜜罐：人看不见的那一栏被填了，是脚本，假装成功
   if (typeof b.t === 'number' && b.t < MIN_FILL_MS) return json({ error: '慢一点，从容落笔' }, 429, cors);
   const name = clean(b.name, MAX.name), place = clean(b.place, MAX.place), msg = clean(b.msg, MAX.msg);
-  if (name === null || place === null || msg === null) return json({ error: `名字最多 ${MAX.name} 字，来自最多 ${MAX.place} 字，留言最多 ${MAX.msg} 字` }, 400, cors);
+  if (name === null || place === null || msg === null) return json({ error: `名字最多 ${MAX.name / 2} 个汉字（或 ${MAX.name} 个字母），来自最多 ${MAX.place / 2} 个汉字（或 ${MAX.place} 个字母），留言最多 ${MAX.msg / 2} 个汉字（或 ${MAX.msg} 个字母）` }, 400, cors);
   if (!name) return json({ error: '先写下名字' }, 400, cors);
   const all = `${name} ${place} ${msg}`;
   if (looksLikeContact(all)) return json({ error: '石壁上不留网址、电话和账号' }, 400, cors);
