@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you refer to this work, please cite it as below."
+type: software
+title: "Yuyang Dongtian Garden Walk (玉阳洞天游园)"
+abstract: >-
+  A free browser game that rebuilds the Ming blue-and-green handscroll
+  Yuyang Dongtian (bearing the signature of Qiu Ying, Tianjin Museum) as one
+  continuous, walkable 3D world of thirteen scenes, aligned to the painting by
+  back-projecting a "painting view" camera for each scene. Made by Yang Li
+  together with Claude (Anthropic), an AI coding agent.
+authors:
+  - given-names: Yang
+    family-names: Li
+    affiliation: Independent artist
+repository-code: "https://github.com/cookyecat/yuyang-dongtian"
+url: "https://art.starverse.chat/"
+date-released: 2026-11-09
+keywords:
+  - cultural heritage
+  - Chinese landscape painting
+  - handscroll
+  - human–AI co-creation
+  - game-based reconstruction
+  - non-photorealistic rendering
+  - three.js
