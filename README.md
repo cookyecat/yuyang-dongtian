@@ -186,6 +186,8 @@ assets/            textures, the Guanyin head, low-resolution photographs, baked
 guestbook/         inscription-wall backend (Cloudflare Workers + D1)
 tools/bake.cjs     regenerates assets/world_bake.txt after any change in js/
 docs/media/        images for this README
+LICENSE            MIT, for the code; LICENSE-CC-BY-4.0 for original non-code content
+NOTICE.md          which files fall under which licence, and which are not licensed
 ```
 
 After editing anything in `js/`, run `node tools/bake.cjs .` before publishing. Otherwise the stale bake is ignored and the page computes everything while loading (same result, slower).
@@ -195,14 +197,21 @@ After editing anything in `js/`, run `node tools/bake.cjs .` before publishing. 
 ## Credits and sources
 
 - **Original work:** *Yuyang Dongtian tu* 玉阳洞天图卷, handscroll, bearing the signature of Qiu Ying (仇英, d. 1552). Tianjin Museum.
-- **Photographs:** taken by the author in the museum gallery. Only low-resolution copies are published, for study, teaching and non-commercial display.
+- **Photographs:** taken by the author in the museum gallery. Only low-resolution copies are published, so the game can show the painting beside its 3D world. They are not covered by this repository's licences (see [License](#license)).
 - **Rendering:** [three.js](https://threejs.org/) r170 (MIT License, see `vendor/three/LICENSE`).
 - **Inscription wall backend:** Cloudflare Workers + D1; code and setup in `guestbook/`.
-- **Fonts** (all SIL Open Font License 1.1, subset to the characters used): Ma Shan Zheng and Noto Serif SC; LXGW WenKai TC for the signature and seals only; Source Serif 4 and Cormorant Garamond for the English interface.
+- **Fonts** (all SIL Open Font License 1.1, subset to the characters used; see `fonts/OFL.txt`): Ma Shan Zheng and Noto Serif SC; LXGW WenKai TC for the signature and seals only; Source Serif 4 and Cormorant Garamond for the English interface.
 
 **Made by** Yang Li 李揚 with Claude · GitHub [@cookyecat](https://github.com/cookyecat) · X [@myannli](https://x.com/myannli)
 
-A personal and educational project, not for commercial use.
+## License
+
+- **Code** (`index.html`, `js/`, `tools/`, `guestbook/` and the rest of the source): [MIT License](LICENSE).
+- **Original non-code content** (this README, the screenshots and animations of the game, the Guanyin head model): [CC BY 4.0](LICENSE-CC-BY-4.0). Credit it as *Yuyang Dongtian Garden Walk* by Yang Li, made with Claude (Anthropic).
+- **Third-party parts** keep their own licences: three.js (MIT) and the fonts (SIL Open Font License 1.1).
+- **Not licensed:** the photographs of the painting taken in the Tianjin Museum, and every image cut from them, are excluded from both licences, and no permission to reuse them is granted. That covers `assets/painting_*.jpg`, the painted textures and figure cards in `assets/`, and the painting side of the comparison images on this page. The full list is in [NOTICE.md](NOTICE.md).
+
+Both licences allow commercial use, with credit.
 
 ## Citing
 
@@ -272,11 +281,18 @@ python3 -m http.server 8000
 ### 来源与致谢
 
 - 原作：仇英（款）《玉阳洞天图卷》，天津博物馆藏。
-- 原画照片：作者在博物馆展厅实拍。公开仓库里只放低清版本，仅用于学习、教学与非商业展示。
+- 原画照片：作者在博物馆展厅实拍。公开仓库里只放低清版本，用于游戏中与原画对照，不在本仓库的许可范围内（见下方「许可」）。
 - 渲染：[three.js](https://threejs.org/) r170（MIT 许可，见 `vendor/three/LICENSE`）。
 - 题名壁后端：Cloudflare Workers + D1，代码和部署步骤在 `guestbook/`。
-- 字体：马善政楷书 Ma Shan Zheng、思源宋体 Noto Serif SC；落款和印章用霞鹜文楷 TC（只含落款用字）；英文界面用 Source Serif 4 和 Cormorant Garamond。均为 SIL Open Font License 1.1，已按本作用字子集化。
+- 字体：马善政楷书 Ma Shan Zheng、思源宋体 Noto Serif SC；落款和印章用霞鹜文楷 TC（只含落款用字）；英文界面用 Source Serif 4 和 Cormorant Garamond。均为 SIL Open Font License 1.1，已按本作用字子集化，许可全文见 `fonts/OFL.txt`。
 
 **作者**：李揚 YANG LI 与 Claude · GitHub [@cookyecat](https://github.com/cookyecat) · X [@myannli](https://x.com/myannli)
 
-本项目为个人作品与教学展示，非商业用途。
+### 许可
+
+- 代码（`index.html`、`js/`、`tools/`、`guestbook/` 等全部源代码）：[MIT 许可](LICENSE)。
+- 原创的非代码内容（本 README、游戏截图与动图、观音头像模型）：[CC BY 4.0](LICENSE-CC-BY-4.0)。署名请写：《玉阳洞天游园》，李揚 与 Claude（Anthropic）同制。
+- 第三方组件沿用各自的许可：three.js（MIT），字体（SIL Open Font License 1.1）。
+- **不在许可范围内**：在天津博物馆拍摄的原画照片，以及从照片裁出的一切图像，既不适用 MIT，也不适用 CC BY 4.0，本仓库不授予任何再使用的许可。包括 `assets/painting_*.jpg`、`assets/` 里取自原画的贴图和人物卡片、本页对照图里原画那一侧。完整清单见 [NOTICE.md](NOTICE.md)。
+
+两种许可都允许在署名的前提下商用。

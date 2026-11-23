@@ -14,6 +14,9 @@ authors:
     affiliation: Independent artist
 repository-code: "https://github.com/cookyecat/yuyang-dongtian"
 url: "https://art.starverse.chat/"
+license:
+  - MIT
+  - CC-BY-4.0
 date-released: 2026-11-09
 keywords:
   - cultural heritage

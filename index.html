@@ -69,6 +69,8 @@ kbd{font-family:var(--f-body);font-size:11px;border:1px solid currentColor;borde
 #stageName{font-size:15px;letter-spacing:.12em;color:#3d3a32;text-shadow:0 0 10px rgba(236,226,201,.95);min-height:1.2em;}
 #who{position:fixed;z-index:5;white-space:nowrap;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid rgba(121,179,147,.6);padding:4px 14px;border-radius:3px;font-size:13px;letter-spacing:.1em;}
 #who::before{content:"你正操控 ";color:var(--silk-dim);}
+#who,#aseal{color:var(--silk);text-shadow:none;} /* 两者放在 .tt 里（窄屏、触屏上跟着题名往下排），宽屏仍是 fixed，颜色和阴影别继承题名的 */
+#aseal{pointer-events:auto;}
 
 /* 右上：工具 */
 #tools{position:fixed;z-index:6;top:calc(14px + env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));display:flex;gap:8px;}
@@ -174,11 +176,19 @@ body.ready #veil{opacity:0;}
   body:not([data-mode="free"]) #btnUp, body:not([data-mode="free"]) #btnDown{display:none;}
   #hint{font-size:11.5px;}
 }
+/* 窄屏（手机横屏、平板竖屏、窄窗口）：顶部放不下题名、居中的操控名和带字的工具条，操控名改排到题名下面，工具条只留短字，题名去掉卷名小字 */
+@media (max-width:1180px){
+  #who{position:static;transform:none;align-self:flex-start;margin-top:6px;}
+}
+@media (max-width:900px){
+  #tools .t{display:none;}
+  .tt small{display:none;}
+}
 @media (max-width:640px){
   #card{left:12px;right:12px;width:auto;top:auto;bottom:calc(12px + env(safe-area-inset-bottom,0px));max-height:52%;}
   #card h2{font-size:26px;}
-  #tools .t{display:none;}
-  #who{top:calc(96px + env(safe-area-inset-top,0px));left:16px;transform:none;}
+  /* 手机竖屏：工具条占满顶行，题名挪到它下面，右边让出语言、返回按钮那一列 */
+  #title{top:calc(58px + env(safe-area-inset-top,0px));max-width:calc(100% - 104px);}
   .seal{display:none;}
   #banner .v span{font-size:34px;}
   #hint{bottom:calc(8px + env(safe-area-inset-bottom,0px));}
@@ -266,7 +276,7 @@ body.ready #veil{opacity:0;}
 #card .cr{font-size:13px;color:#5b5446;}
 #card .cr a{color:#8f2f1f;}
 #card .acts button.x{background:#7a3a2c;}
-@media (pointer:coarse){#aseal{top:calc(132px + env(safe-area-inset-top,0px));bottom:auto;--s:30px;} #aseal em{display:none;}} /* 手机左下是摇杆区，朱印挪到左上题名下面 */
+@media (pointer:coarse){#aseal{position:static;align-self:flex-start;margin-top:8px;--s:30px;} #aseal em{display:none;}} /* 手机左下是摇杆区，朱印挪到左上，跟在题名（和操控名）下面排 */
 @media (max-width:640px){
   #ba .sig span{writing-mode:horizontal-tb;font-size:18px;}
   .paper > div{padding:22px 18px 18px;}
@@ -338,10 +348,10 @@ body.ready #veil{opacity:0;}
   <div class="tt"><small><span class="zh">仇英（款）· 玉阳洞天图卷</span><span class="en">Qiu Ying (signed) · The Yuyang Dongtian handscroll</span></small>
     <div id="zoneRow"><div id="zoneName">玉女潭</div><span id="zoneTag"><span class="zh">第三区</span><span class="en">Zone 3 of 6</span></span></div>
     <div id="zoneEn" class="en"></div>
-    <div id="stageName"></div></div>
+    <div id="stageName"></div>
+    <div id="who" hidden></div>
+    <button id="aseal" title="作者 · 跋" data-en-title="The makers · Colophon" aria-label="作者信息（跋）" data-en-aria-label="About the makers (colophon)"><i class="yin"><b>李</b><b>揚</b></i><em><span class="zh">李揚 与 Claude 同制 · 点开看跋</span><span class="en">Made by Yang Li with Claude · read the colophon</span></em></button></div>
 </div>
-<div id="who" hidden></div>
-<button id="aseal" title="作者 · 跋" data-en-title="The makers · Colophon" aria-label="作者信息（跋）" data-en-aria-label="About the makers (colophon)"><i class="yin"><b>李</b><b>揚</b></i><em><span class="zh">李揚 与 Claude 同制 · 点开看跋</span><span class="en">Made by Yang Li with Claude · read the colophon</span></em></button>
 
 <div id="tools">
   <button id="btnLang" data-set-lang="toggle" title="Switch to English" data-en-title="切换到中文" lang="en"><span class="zh">EN</span><span class="en" lang="zh-Hans">中文</span></button>
