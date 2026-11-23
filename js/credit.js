@@ -48,6 +48,57 @@ const tidy = (s) => String(s ?? '').normalize('NFKC').replace(/[\u0000-\u001f\u0
 const LAT = '[\\p{Script=Latin}\\x21-\\x7e\\u2018\\u2019\\u201c\\u201d]+(?: +[\\p{Script=Latin}\\x21-\\x7e\\u2018\\u2019\\u201c\\u201d]+)*';
 const LAT_SPLIT = new RegExp(`${LAT}|.`, 'gsu'), LAT_ONE = new RegExp(`^${LAT}$`, 'u');
 
+// ---------- 社交账号（v55） ----------
+// 游人只选平台、填用户名，主页链接由这里按平台的固定格式拼出来，不收网址，所以点开只会去这五家的主页。
+// 带账号的题名先审后上（后端 hidden = 2，Yang 在 /admin 里点「通过」）。石屏上照旧只刻名字，题名框里点开名字才看到账号。
+// 后端 guestbook/src/worker.js 有同一张表（平台、格式），两边改要一起改。
+const XHS_ID = /^[0-9a-f]{24}$/; // 小红书主页链接里那串 ID；小红书号没有对应的网址，卡片上只给号码和「复制」
+export const SNS = {
+  weibo: { zh: '微博', en: 'Weibo', at: true, ph: ['微博昵称，或数字 ID', 'Weibo nickname or numeric ID'],
+    rule: ['昵称 2–15 个汉字（或 4–30 个字母），或纯数字 ID', 'a nickname of 4–30 letters, or the numeric ID'],
+    ok: (h) => /^\d{5,12}$/.test(h) || (/^[\p{Script=Han}A-Za-z0-9_-]+$/u.test(h) && textWidth(h) >= 4 && textWidth(h) <= 30),
+    url: (h) => (/^\d+$/.test(h) ? `https://weibo.com/u/${h}` : `https://weibo.com/n/${encodeURIComponent(h)}`) },
+  xhs: { zh: '小红书', en: 'Xiaohongshu', ph: ['小红书号，或主页链接', 'RED ID, or your profile link'],
+    rule: ['小红书号（字母、数字、下划线），或 xiaohongshu.com/user/profile/… 主页链接', 'your RED ID, or a xiaohongshu.com/user/profile/… link'],
+    ok: (h) => XHS_ID.test(h) || /^[A-Za-z0-9_]{5,20}$/.test(h), url: (h) => (XHS_ID.test(h) ? `https://www.xiaohongshu.com/user/profile/${h}` : '') },
+  x: { zh: 'X', en: 'X', at: true, ph: ['用户名（@ 后面那段）', 'Username (the part after @)'],
+    rule: ['1–15 位字母、数字或下划线', '1–15 letters, digits or underscores'],
+    ok: (h) => /^[A-Za-z0-9_]{1,15}$/.test(h), url: (h) => `https://x.com/${h}` },
+  instagram: { zh: 'Instagram', en: 'Instagram', at: true, ph: ['用户名', 'Username'],
+    rule: ['最多 30 位字母、数字、下划线和点', 'up to 30 letters, digits, underscores and dots'],
+    ok: (h) => /^[A-Za-z0-9._]{1,30}$/.test(h) && !/^\.|\.$|\.\./.test(h), url: (h) => `https://www.instagram.com/${h}/` },
+  github: { zh: 'GitHub', en: 'GitHub', ph: ['用户名', 'Username'],
+    rule: ['最多 39 位字母、数字和连字符', 'up to 39 letters, digits and hyphens'],
+    ok: (h) => h.length <= 39 && /^[A-Za-z0-9](?:-?[A-Za-z0-9])*$/.test(h), url: (h) => `https://github.com/${h}` },
+};
+const snsOf = (it) => (it && Object.hasOwn(SNS, it.sns || '') && it.handle && SNS[it.sns].ok(it.handle) ? SNS[it.sns] : null);
+const cleanHandle = (s) => tidy(s).replace(/\s+/g, '').replace(/^@+/, '');
+// 贴进来的是主页链接：认出平台和用户名（只认这五家的主页格式，别的链接一律不收）
+function fromLink(s) {
+  if (!/[/]|\.(com|cn)\b/i.test(s)) return null;
+  let u; try { u = new URL(/^[a-z]+:\/\//i.test(s) ? s : 'https://' + s); } catch (e) { return { err: 1 }; }
+  const host = u.hostname.toLowerCase().replace(/^(www|m|mobile)\./, ''), seg = u.pathname.split('/').filter(Boolean).map((p) => { try { return decodeURIComponent(p); } catch (e) { return p; } });
+  if (host === 'x.com' || host === 'twitter.com') return seg[0] ? { sns: 'x', handle: seg[0].replace(/^@/, '') } : { err: 1 };
+  if (host === 'github.com') return seg[0] ? { sns: 'github', handle: seg[0] } : { err: 1 };
+  if (host === 'instagram.com') return seg[0] ? { sns: 'instagram', handle: seg[0] } : { err: 1 };
+  if (host === 'weibo.com' || host === 'weibo.cn') {
+    if ((seg[0] === 'u' || seg[0] === 'profile') && /^\d+$/.test(seg[1] || '')) return { sns: 'weibo', handle: seg[1] };
+    if (seg[0] === 'n' && seg[1]) return { sns: 'weibo', handle: seg[1] };
+    if (/^\d{5,12}$/.test(seg[0] || '')) return { sns: 'weibo', handle: seg[0] };
+    return { err: 1 };
+  }
+  if (host === 'xiaohongshu.com' && seg[0] === 'user' && seg[1] === 'profile' && XHS_ID.test(seg[2] || '')) return { sns: 'xhs', handle: seg[2] };
+  if (host === 'xhslink.com') return { err: 'xhs' };
+  return { err: 1 };
+}
+// 卡片上怎么写这个账号
+function handleShown(it) {
+  const s = SNS[it.sns], h = it.handle;
+  if (it.sns === 'xhs') return XHS_ID.test(h) ? t('主页', 'Profile') : t('小红书号 ', 'RED ID ') + h;
+  if (it.sns === 'weibo' && /^\d+$/.test(h)) return 'ID ' + h;
+  return (s.at ? '@' : '') + h;
+}
+
 // ---------- 题名壁后端 ----------
 function apiBase() {
   const q = new URLSearchParams(location.search).get('gb');
@@ -77,6 +128,10 @@ const ERR_EN = {
   慢一点从容落笔: 'Not so fast. Take your time with the brush.',
   先写下名字: 'Write your name first.',
   石壁上不留网址电话和账号: 'No web addresses, phone numbers or account names on the wall, please.',
+  '名字和留言里不留网址电话；想让人找到你请填社交账号一栏': 'No web addresses or phone numbers in your name or line, please. To let people find you, use the social account field.',
+  账号太长了: 'That account name is too long.',
+  先选是哪个平台的账号: 'Pick which platform the account is on.',
+  这个平台还不支持: 'That platform is not supported.',
   这几个字不宜刻上石壁换个说法吧: 'Those words are not fit for the stone. Try saying it another way.',
   刚题过了歇一会儿再来: 'You have only just signed. Rest a moment before signing again.',
   今天题得够多了明天再来: 'You have signed enough for one day. Come back tomorrow.',
@@ -87,6 +142,8 @@ function errEn(m) {
   if (!isEn()) return m;
   const k = String(m).replace(/[\s，。、,.!！]/g, '');
   if (ERR_EN[k]) return ERR_EN[k];
+  const bad = /^(.+)账号的格式不对$/.exec(k), s = bad && Object.values(SNS).find((v) => v.zh === bad[1]);
+  if (s) return `That does not look like a ${s.en} account: ${s.rule[1]}.`;
   if (/^名字最多/.test(k)) return `Too long for the stone: a name may be up to ${TB_MAX.name} letters, a place up to ${TB_MAX.place}, and a line up to ${TB_MAX.msg} (Chinese characters count double).`;
   return 'The inscription did not go through. Please try again later.';
 }
@@ -161,6 +218,7 @@ function wallTexture(items) { // 北壁题名：右起，大字「题名壁」�
   x -= 120;
   vline(g, '游人至此 各留其名', x, 90, 52, BRUSH, 'rgba(34,30,24,.75)');
   x -= 100;
+  const spans = []; // v55 每人占画布上哪一段（横向像素），石屏上点名字时用来认出是谁
   if (!items || !items.length) {
     vline(g, API ? '尚无人题名 候君落笔' : '题名壁不日开放', x, 120, 64, BRUSH, 'rgba(34,30,24,.55)');
   } else {
@@ -179,10 +237,11 @@ function wallTexture(items) { // 北壁题名：右起，大字「题名壁」�
       if (subY + len(sub, 32) <= BOT) vline(g, sub, x + (it.msg ? 22 : 0), subY, 32, KAI, 'rgba(30,26,20,.7)');
       else { vline(g, sub, cx, small, fit(sub, 32, small), KAI, 'rgba(30,26,20,.7)'); last = cx; cx -= 38; }
       if (it.msg) { vline(g, it.msg, cx, small, fit(it.msg, 34, small), KAI, 'rgba(30,26,20,.72)'); last = cx; }
+      spans.push({ id: it.id, x0: last - 44, x1: x + Math.max(44, nameSize * 0.6) });
       x = last === x ? x - 96 : last - 88;
     }
   }
-  const t = new THREE.CanvasTexture(c); t.anisotropy = 8; return t;
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 8; t.userData.spans = spans; return t;
 }
 
 // ---------- 石壁 ----------
@@ -300,6 +359,13 @@ export function buildCreditSite({ scene, groundHeight, rockMat, flat, Kit, COL, 
   return {
     pickables, painter: f, moya, wall,
     setWall(items) { wallItems = items; swap(wall.plane, wallTexture(items)); },
+    wallItemAt(p) { // v55 石屏上点中的那一点（世界坐标）落在谁的名字上，返回题名的 id
+      if (!p) return null;
+      const S = END.wall, pw = S.w - 2 * 0.45, l = wall.rock.worldToLocal(p.clone());
+      const cx = ((l.x + pw / 2) / pw) * 2048, spans = wall.plane.material.uniforms.map.value.userData.spans || [];
+      const hit = spans.find((s) => cx >= s.x0 && cx <= s.x1);
+      return hit ? hit.id : null;
+    },
     nearSite(p) { // 控制人物走到题刻或题名壁跟前
       for (const [S, kind] of [[END.moya, 'ba'], [END.wall, 'wall']]) {
         const c = Math.cos(S.ry), s = Math.sin(S.ry), dx = p.x - S.x, dz = p.z - S.z;
@@ -318,21 +384,35 @@ export function initCreditUI({ onFlyEnd, onFlyWall, onWallItems }) {
   const open = (el) => { el.hidden = false; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in'); };
   const openBa = () => { tb.hidden = true; open(ba); };
   let openedAt = 0;
-  const openWall = () => { ba.hidden = true; open(tb); openedAt = Date.now(); refresh(); setTimeout(() => { if (matchMedia('(pointer:fine)').matches) $('tbName').focus(); }, 60); };
-  const close = () => { const was = !ba.hidden || !tb.hidden; ba.hidden = true; tb.hidden = true; return was; };
+  // v55 openWall(id)：从石屏上点某人的名字进来时，打开题名框后顺手翻开这个人的小卡片
+  const openWall = (id) => {
+    ba.hidden = true; hideCard(); open(tb); openedAt = Date.now();
+    refresh().then(() => { if (id != null && !tb.hidden) showCard(id); });
+    setTimeout(() => { if (id == null && matchMedia('(pointer:fine)').matches) $('tbName').focus(); }, 60);
+  };
+  const close = () => { const was = !ba.hidden || !tb.hidden; ba.hidden = true; tb.hidden = true; hideCard(); return was; };
   $('aseal').onclick = openBa;
   $('baClose').onclick = () => (ba.hidden = true);
-  $('tbClose').onclick = () => (tb.hidden = true);
-  $('baWall').onclick = openWall;
+  $('tbClose').onclick = () => { tb.hidden = true; hideCard(); };
+  $('baWall').onclick = () => openWall();
   $('baGo').onclick = () => { close(); onFlyEnd(); };
   $('tbGo').onclick = () => { close(); (onFlyWall || onFlyEnd)(); };
   $('tbBa').onclick = openBa;
   for (const el of document.querySelectorAll('[data-open-ba]')) el.addEventListener('click', (e) => { e.preventDefault(); openBa(); });
   ba.addEventListener('pointerdown', (e) => { if (e.target === ba) ba.hidden = true; });
-  addEventListener('keydown', (e) => { if (e.key === 'Escape' && (!ba.hidden || !tb.hidden)) { ba.hidden = true; tb.hidden = true; e.stopPropagation(); } }, true);
-  tb.addEventListener('pointerdown', (e) => { if (e.target === tb) tb.hidden = true; });
+  addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || (ba.hidden && tb.hidden)) return;
+    e.stopPropagation();
+    if (!card.hidden) { hideCard(); return; } // 先合上小卡片，再按一次才关题名框
+    ba.hidden = true; tb.hidden = true;
+  }, true);
+  tb.addEventListener('pointerdown', (e) => {
+    if (e.target === tb) { tb.hidden = true; hideCard(); return; }
+    if (!card.hidden && !card.contains(e.target) && !e.target.closest('.tb-col')) hideCard();
+  });
 
-  const list = $('tbList'), msg = $('tbMsg'), form = $('tbForm');
+  const list = $('tbList'), msg = $('tbMsg'), form = $('tbForm'), card = $('tbCard');
+  const sub = (it) => (isEn() ? `${it.place ? 'from ' + it.place : 'was here'} · ${dateEn(it.ts)}` : `${it.place ? '自' + it.place + '来游' : '到此一游'} · ${ganzhiDate(it.ts)}`);
   function render() {
     if (!API) { list.innerHTML = `<p class="tb-empty">${t('题名壁不日开放。', 'The inscription wall opens soon.')}</p>`; form.classList.add('off'); return; }
     if (!items) { list.innerHTML = `<p class="tb-empty">${t('正在拓印石壁上的题名…', 'Taking rubbings of the names on the stone…')}</p>`; return; }
@@ -340,11 +420,50 @@ export function initCreditUI({ onFlyEnd, onFlyWall, onWallItems }) {
     // 纯西文整段侧过来（class="lat"）；中西混排时汉字一个一行，夹在中间的西文整段侧过来（<em class="lr">），不拆成单个字母
     const vt = (tag, s) => (LAT_ONE.test(s) ? `<${tag} class="lat">${esc(s)}</${tag}>`
       : `<${tag}>${(s.match(LAT_SPLIT) || []).map((p) => (LAT_ONE.test(p) ? `<em class="lr">${esc(p)}</em>` : esc(p))).join('')}</${tag}>`);
-    const sub = (it) => (isEn() ? `${it.place ? 'from ' + it.place : 'was here'} · ${dateEn(it.ts)}` : `${it.place ? '自' + it.place + '来游' : '到此一游'} · ${ganzhiDate(it.ts)}`);
-    list.innerHTML = items.map((it) => `<div class="tb-col">${vt('b', it.name)}${it.msg ? vt('i', it.msg) : ''}${vt('span', sub(it))}</div>`).join('');
+    // v55 每一列都能点开看小卡片；留了社交账号的，落款小字后面盖一枚小朱印作记号（账号本身只在卡片上）
+    list.innerHTML = items.map((it) => {
+      const s = snsOf(it), tip = s ? t(`点开看 ${it.name} 的${s.zh}`, `Open to see ${it.name}’s ${s.en}`) : t('点开看', 'Open');
+      const tail = vt('span', sub(it)).replace(/<\/span>$/, s ? '<u class="tb-seal" aria-hidden="true"></u></span>' : '</span>');
+      return `<div class="tb-col${s ? ' sns' : ''}" role="button" tabindex="0" data-id="${esc(it.id)}" title="${esc(tip)}">${vt('b', it.name)}${it.msg ? vt('i', it.msg) : ''}${tail}</div>`;
+    }).join('');
+    if (cardId != null) list.querySelector(`.tb-col[data-id="${CSS.escape(String(cardId))}"]`)?.classList.add('on'); // 重画时卡片还开着，这一列照旧高亮
   }
+
+  // ---------- v55 题名小卡片：名字、来处、留言，和题名者留下的社交账号 ----------
+  let cardId = null, cardAt = 0;
+  function hideCard() { if (!card) return; card.hidden = true; cardId = null; list.querySelectorAll('.tb-col.on').forEach((c) => c.classList.remove('on')); }
+  function showCard(id) {
+    const it = (items || []).find((x) => String(x.id) === String(id)), col = list.querySelector(`.tb-col[data-id="${CSS.escape(String(id))}"]`);
+    if (!it || !col) { hideCard(); return; }
+    hideCard(); cardId = it.id; col.classList.add('on');
+    const s = snsOf(it);
+    let acct = '';
+    if (s) {
+      const url = s.url(it.handle), label = `<em>${esc(t(s.zh, s.en))}</em>`;
+      acct = url
+        ? `<a class="tbc-acct" href="${esc(url)}" target="_blank" rel="noopener nofollow ugc">${label}<span>${esc(handleShown(it))}</span><i>↗</i></a><small>${t('在新窗口打开外部网站', 'Opens an outside site in a new tab')}</small>`
+        : `<div class="tbc-acct">${label}<span>${esc(handleShown(it))}</span><button type="button" class="tbc-copy">${t('复制', 'Copy')}</button></div><small>${t('在小红书里搜这个号就能找到', 'Search for this ID in the Xiaohongshu app')}</small>`;
+    }
+    card.innerHTML = `<button type="button" class="close" aria-label="${t('合上', 'Close')}">×</button><div class="tbc-name">${esc(it.name)}</div>`
+      + `<div class="tbc-sub">${esc(sub(it))}</div>${it.msg ? `<div class="tbc-msg">${t('「', '“')}${esc(it.msg)}${t('」', '”')}</div>` : ''}${acct}`;
+    card.querySelector('.close').onclick = hideCard;
+    const cp = card.querySelector('.tbc-copy');
+    if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(it.handle); cp.textContent = t('已复制', 'Copied'); } catch (e) { cp.textContent = it.handle; } };
+    card.hidden = false; cardAt = performance.now();
+    // 摆在这一列旁边：题名从右往左排，卡片先放左边，放不下放右边；手机上居中
+    col.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const box = tb.firstElementChild, B = box.getBoundingClientRect(), C = col.getBoundingClientRect(), L = list.getBoundingClientRect(), w = card.offsetWidth;
+    let left = C.left - B.left - w - 6;
+    if (left < 8) left = C.right - B.left + 6;
+    if (left + w > B.width - 8) left = (B.width - w) / 2;
+    card.style.left = `${Math.max(8, left)}px`;
+    card.style.top = `${L.top - B.top + box.scrollTop + 10}px`;
+  }
+  list.addEventListener('click', (e) => { const c = e.target.closest('.tb-col'); if (!c) return; if (String(cardId) === c.dataset.id) hideCard(); else showCard(c.dataset.id); });
+  list.addEventListener('keydown', (e) => { const c = e.target.closest('.tb-col'); if (c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); showCard(c.dataset.id); } });
+  list.addEventListener('scroll', () => { if (!card.hidden && performance.now() - cardAt > 400) hideCard(); }, { passive: true }); // 翻开时为了露出这一列滚的那一下不算
+
   let offline = false;
-  onLang(() => { msg.textContent = ''; if (offline) showOffline(); else render(); }); // v52 切换语言时重画列表
   const showOffline = () => { list.innerHTML = `<p class="tb-empty">${t('石壁一时看不清（网络不通），稍后再来。', 'The wall cannot be read just now (no connection). Please come back later.')}</p>`; };
   async function refresh(force) {
     if (!API) { render(); return; }
@@ -362,20 +481,51 @@ export function initCreditUI({ onFlyEnd, onFlyWall, onWallItems }) {
     el.addEventListener('input', (e) => { if (!e.isComposing) clamp(); });
     el.addEventListener('compositionend', clamp);
   }
+
+  // ---------- v55 社交账号一栏：先选平台再填用户名；贴进主页链接也认得出来 ----------
+  const selSns = $('tbSns'), inHandle = $('tbHandle');
+  function langSns() { // 下拉框的选项和输入框的提示跟着语言、平台变
+    for (const o of selSns.options) o.textContent = o.value ? t(SNS[o.value].zh, SNS[o.value].en) : t('选平台', 'Platform');
+    const s = SNS[selSns.value];
+    inHandle.placeholder = s ? t(...s.ph) : t('用户名，或贴上主页链接', 'Username, or paste your profile link');
+  }
+  const linkErr = (r) => (r.err === 'xhs' ? t('小红书的短链接认不出来：请填小红书号，或在浏览器里打开主页，复制 xiaohongshu.com/user/profile/… 那条链接。', 'Short xhslink.com links cannot be read: enter your RED ID, or open your profile in a browser and copy the xiaohongshu.com/user/profile/… link.')
+    : t('这条链接认不出来：只填用户名就好（支持微博、小红书、X、Instagram、GitHub）。', 'That link is not one we can read: just enter the username (Weibo, Xiaohongshu, X, Instagram or GitHub).'));
+  function readLink() { // 输入框里是链接：换成平台 + 用户名
+    const r = fromLink(cleanHandle(inHandle.value));
+    if (!r) return true;
+    if (r.err) { msg.textContent = linkErr(r); return false; }
+    selSns.value = r.sns; inHandle.value = r.handle; langSns();
+    msg.textContent = t(`已从链接里认出账号：${SNS[r.sns].zh} ${handleShown(r)}`, `Account read from the link: ${SNS[r.sns].en} ${handleShown(r)}`);
+    return true;
+  }
+  selSns.addEventListener('change', () => { langSns(); if (selSns.value && !inHandle.value) inHandle.focus(); });
+  inHandle.addEventListener('change', readLink);
+  inHandle.addEventListener('paste', () => setTimeout(readLink, 0));
+  langSns();
+
+  onLang(() => { msg.textContent = ''; hideCard(); langSns(); if (offline) showOffline(); else render(); }); // v52 切换语言时重画列表
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault(); if (!API) return;
     const name = tidy($('tbName').value), place = tidy($('tbPlace').value), m = tidy($('tbText').value);
     if (!name) { msg.textContent = t('先写下名字。', 'Write your name first.'); return; }
     for (const [, k, zh] of FIELDS) if (textWidth({ name, place, msg: m }[k]) > TB_MAX[k]) { msg.textContent = fullNote(k, zh); return; }
+    if (!readLink()) return;
+    const handle = cleanHandle(inHandle.value), sns = handle ? selSns.value : '';
+    if (handle && !sns) { msg.textContent = t('先选是哪个平台的账号。', 'Pick which platform the account is on.'); selSns.focus(); return; }
+    if (handle && !SNS[sns].ok(handle)) { msg.textContent = t(`${SNS[sns].zh}账号的格式不对：${SNS[sns].rule[0]}。`, `That does not look like a ${SNS[sns].en} account: ${SNS[sns].rule[1]}.`); inHandle.focus(); return; }
     let last = 0; try { last = +localStorage.getItem('yydt-tibi') || 0; } catch (err) {}
     if (Date.now() - last < 60000) { msg.textContent = t('刚题过了，歇一会儿再来。', 'You have only just signed. Rest a moment before signing again.'); return; }
     msg.textContent = t('正在刻…', 'Carving…'); form.querySelector('button').disabled = true;
     try {
-      const j = await postName({ name, place, msg: m, hp: $('tbHp').value, t: Date.now() - openedAt });
+      const j = await postName({ name, place, msg: m, sns, handle, hp: $('tbHp').value, t: Date.now() - openedAt });
       try { localStorage.setItem('yydt-tibi', String(Date.now())); } catch (err) {}
-      msg.textContent = j.pending ? t('题名已收到，主人过目后就刻上石壁。', 'Received. Your name will be carved once the host has looked it over.')
+      msg.textContent = j.pending
+        ? (handle ? t('题名已收到。带账号的题名要等主人过目，通过后就刻上石壁。', 'Received. Entries with an account are carved once the host has looked them over.')
+          : t('题名已收到，主人过目后就刻上石壁。', 'Received. Your name will be carved once the host has looked it over.'))
         : t(`已刻在玉女潭边的石屏上：${name}${place ? ' 自' + place + '来游' : ' 到此一游'}。`, `Carved on the stone screen by the Jade Maiden Pool: “${name}${place ? ', from ' + place : ' was here'}”.`);
-      form.reset();
+      form.reset(); langSns();
       if (j.item) { items = [j.item, ...(items || [])]; render(); onWallItems(items); } else refresh(true);
     } catch (err) { msg.textContent = err.message; }
     finally { form.querySelector('button').disabled = false; }
