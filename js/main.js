@@ -1818,6 +1818,7 @@ function pick(cx, cy) {
   const hit = ray.intersectObjects(proxies, false)[0];
   return hit ? hit.object.userData.fig : null;
 }
+let creditHit = null; // v55 石屏上点中的那一点，用来认出点的是谁的名字
 function creditPick(cx, cy) { // 卷尾题刻、题名壁（v50 起在玉女潭）：点一下就看
   // v51 剪枝看离镜头最近的那块石（原来只看卷尾题刻，题名壁挪走后在玉女潭永远点不到、悬停也没提示）
   if (!credit.pickables.some((r) => camera.position.distanceTo(r.position) < 90)) return null;
@@ -1827,6 +1828,7 @@ function creditPick(cx, cy) { // 卷尾题刻、题名壁（v50 起在玉女潭�
   // 石屏矮，中间隔着山坡时不算点中（免得对着坡出提示）
   const o = ray.ray.origin, d = ray.ray.direction;
   for (let t = 1; t < h.distance - 1; t += 0.5) if (o.y + d.y * t < groundHeight(o.x + d.x * t, o.z + d.z * t)) return null;
+  creditHit = h.point;
   return h.object.userData.credit;
 }
 function groundPick(cx, cy) {
@@ -1844,7 +1846,7 @@ function onClick(cx, cy) {
   if (state.mode === 'fly') return;
   const f = pick(cx, cy);
   if (f) { if (state.mode === 'control' && state.ctrl === f) return; focusFigure(f); return; }
-  const cs = creditPick(cx, cy); if (cs) { cs === 'ba' ? creditUI.openBa() : creditUI.openWall(); return; }
+  const cs = creditPick(cx, cy); if (cs) { cs === 'ba' ? creditUI.openBa() : creditUI.openWall(credit.wallItemAt(creditHit)); return; }
   const g = groundPick(cx, cy);
   // 投石：点水面出涟漪；点鹤：惊飞
   if (g && g.water) { ripple(g.p.x, g.p.z); if (Math.hypot(g.p.x - 108, g.p.z) < 12) cranes.forEach((c) => c.startle()); return; }

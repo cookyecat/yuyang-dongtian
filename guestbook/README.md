@@ -57,16 +57,55 @@ Cloudflare 会自动建好 DNS 记录和证书，几分钟后 `https://gb.shensh
 
 ## 管理
 
-打开 `https://<Worker 地址>/admin`，填 ADMIN_TOKEN，就能看到全部题名，逐条「隐藏 / 显示 / 删除」。
-口令只存在你那台电脑的浏览器里。
+打开 `https://<Worker 地址>/admin`（现在是 <https://gb.shenshou.chat/admin>），填 ADMIN_TOKEN，就能看到全部题名。
+口令只存在你那台电脑的浏览器里。忘了口令就重设一个：`npx wrangler secret put ADMIN_TOKEN`。
 
-想改成「先审后刻」（新题名先藏起来，你点了「显示」才上墙）：把 `wrangler.toml` 里 `MODERATE` 改成 `"1"`，再 `npx wrangler deploy`。
+- **待审**（淡黄底，排在最前，页首写着「待审 N 条」）：带社交账号的题名。先点账号链接看一眼对方主页，
+  没问题点「通过」，名字连账号一起上墙；账号不妥、名字可以，点「只刻名字」（账号删掉，名字上墙）；都不行点「删除」。
+- 已上墙的：「隐藏 / 去掉账号 / 删除」。隐藏的：「显示 / 删除」。
+
+不带账号的题名照旧直接上墙。想改成全部「先审后刻」：把 `wrangler.toml` 里 `MODERATE` 改成 `"1"`，再 `npx wrangler deploy`，之后所有新题名都进「待审」。
+
+## 社交账号（v55）
+
+游人可以在题名时附一个社交账号，只能从下拉里选平台、再填用户名（贴主页链接也行，页面会自动认出用户名），
+**不收任意网址**：主页链接由程序按平台的固定格式拼出来，点开只会去这五家：
+
+| 平台 | 收什么 | 链接 |
+|---|---|---|
+| 微博 | 昵称（汉字、字母、数字、`_`、`-`，2–15 个汉字或 4–30 个字母），或纯数字 ID | `weibo.com/n/昵称`、`weibo.com/u/ID` |
+| 小红书 | 主页链接里那串 24 位 ID，或小红书号 | `xiaohongshu.com/user/profile/ID`；小红书号没有网址，卡片上给号码和「复制」 |
+| X | 1–15 位字母、数字、`_` | `x.com/用户名` |
+| Instagram | 最多 30 位字母、数字、`_`、`.` | `instagram.com/用户名/` |
+| GitHub | 最多 39 位字母、数字、`-` | `github.com/用户名` |
+
+- 石屏（3D）和题名框里都只刻名字；点开某个名字，小卡片上才有账号链接（新窗口打开，`rel="noopener nofollow ugc"`）。
+  留了账号的名字，落款小字后面有一枚小朱印作记号。
+- 带账号的题名进「待审」（数据库里 `hidden = 2`），你在 /admin 里通过后才上墙。
+- 想加平台：`src/worker.js` 和 `../js/credit.js` 各有一张 `SNS` 表，两边一起加一行。
+
+### 已经在用的数据库：加两列（只做一次）
+
+v55 给 `names` 表加了 `sns`、`handle` 两列。顺序是**先后端、再合并前端**（反过来的话，中间这段时间游人填的账号会被旧后端悄悄丢掉）：
+
+```bash
+cd guestbook
+# 1. 给线上数据库加两列（旧题名不受影响，账号为空）
+npx wrangler d1 execute yuyang-guestbook --remote --file migrations/0002_sns.sql
+# 2. 部署新后端
+npx wrangler deploy
+# 3. 打开 https://gb.shenshou.chat/admin 看一眼能读出题名（这时还没有待审的）
+```
+
+然后再合并前端（GitHub 上的 PR），Pages 自动上线。第 1 步重复跑会报 `duplicate column name`，说明已经加过了，不用管。
+全新建库的不用跑迁移，`schema.sql` 里已经有这两列。
 
 ## 防刷和过滤（都在 src/worker.js 里）
 
 - 名字 ≤ 12 个汉字，来自 ≤ 10 个汉字，留言 ≤ 20 个汉字；按字宽算，西文字母算半个汉字，所以英文可写 24、20、40 个字母；去掉控制字符、零宽字符，全角半角统一
 - 敏感词：`src/words.js`，比对时忽略空格和标点（「傻 逼」也拦）；西文按整词比，不会误伤 Elizabeth
-- 网址、邮箱、5 位以上的数字（电话、QQ）、「微信」一律不收
+- 名字、来自、留言里：网址、邮箱、5 位以上的数字（电话、QQ）、「微信」一律不收（想让人找到，用社交账号一栏）
+- 社交账号：只收白名单平台的用户名，格式不对的不收，也过一遍敏感词；带账号的先审后上
 - 同一 IP 两次题名至少隔 1 分钟，一天最多 5 条；全站一天最多 500 条（`DAILY_CAP`）
 - 页面上有一个人看不见的输入框（蜜罐），脚本填了就假装成功、实际不存
 - 打开题名框不到 2.5 秒就提交的，当作脚本
@@ -82,4 +121,6 @@ npx wrangler dev --local --var ADMIN_TOKEN:test
 # http://localhost:8000/?gb=http://localhost:8787
 ```
 
-接口：`GET /api/names?limit=80`、`POST /api/names`（`{name, place, msg}`）。
+本机库是旧表的话，先跑一次 `npx wrangler d1 execute yuyang-guestbook --local --file migrations/0002_sns.sql`。
+
+接口：`GET /api/names?limit=80`（只回已上墙的，带 `sns`、`handle`）、`POST /api/names`（`{name, place, msg, sns, handle}`，带账号的回 `{pending: true}`）。

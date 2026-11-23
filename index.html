@@ -224,12 +224,39 @@ body.ready #veil{opacity:0;}
 .tb-col i{font:normal 14px/1.3 "STKaiti","KaiTi","Kaiti SC",var(--f-body);opacity:.85;}
 .tb-col span{font-size:12px;opacity:.75;letter-spacing:.04em;}
 .tb-empty{writing-mode:vertical-rl;font-family:var(--f-brush);font-size:22px;color:#2a2620;opacity:.65;margin:0 auto;}
-#tbForm{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;align-items:end;}
+#tbForm{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 12px;align-items:end;} /* minmax(0,…)：输入框按字体算出的默认宽度不再把表单撑出纸面（手机上原来右边会出界） */
 #tbForm label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5b5446;letter-spacing:.06em;}
 #tbForm label.wide{grid-column:1/-1;}
 #tbForm input{font:16px var(--f-body);color:var(--ink);background:rgba(255,252,242,.7);border:1px solid rgba(42,38,32,.3);border-radius:3px;padding:7px 9px;user-select:text;-webkit-user-select:text;}
 #tbForm input:focus{outline:2px solid rgba(63,122,92,.5);border-color:#3f7a5c;}
 #tbForm .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;}
+/* v55 社交账号：平台下拉 + 用户名 */
+.tb-sns{grid-column:1/-1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5b5446;letter-spacing:.06em;}
+.tb-snsrow{display:flex;gap:8px;}
+.tb-snsrow input{flex:1 1 0;width:0;min-width:0;}
+#tbSns{font:16px var(--f-body);color:var(--ink);background:rgba(255,252,242,.7);border:1px solid rgba(42,38,32,.3);border-radius:3px;padding:7px 6px;flex:0 0 auto;}
+#tbSns:focus{outline:2px solid rgba(63,122,92,.5);border-color:#3f7a5c;}
+.tb-sns small{font-size:12px;color:#7a6f5c;letter-spacing:.02em;line-height:1.6;}
+#tbForm.off select{opacity:.45;pointer-events:none;}
+/* v55 每列可点开小卡片；留了账号的列尾一枚小朱印 */
+.tb-col{cursor:pointer;border-radius:2px;outline:none;transition:background .15s;}
+.tb-col:hover,.tb-col:focus-visible,.tb-col.on{background:rgba(255,250,235,.2);}
+.tb-col:focus-visible{box-shadow:0 0 0 2px rgba(63,122,92,.55);}
+.tb-seal{display:inline-block;width:.75em;height:.75em;margin:.4em 0 0;vertical-align:middle;background:#b23a26;border-radius:1.5px;opacity:.88;box-shadow:inset 0 0 0 1.5px rgba(255,236,220,.35);text-decoration:none;}
+.tb-col span.lat .tb-seal{margin:0 0 0 .5em;}
+#tbCard{position:absolute;z-index:3;width:250px;max-width:calc(100% - 16px);padding:14px 16px 12px;border-radius:3px;background:#f7f0de;border:1px solid rgba(42,38,32,.16);box-shadow:0 12px 32px rgba(0,0,0,.3);font-size:14px;line-height:1.6;color:var(--ink);}
+#tbCard .close{top:2px;right:2px;font-size:20px;}
+.tbc-name{font:400 26px/1.25 "STKaiti","KaiTi","Kaiti SC",var(--f-brush);margin:0 22px 2px 0;word-break:break-word;}
+.tbc-sub{font-size:12.5px;color:#7a6f5c;}
+.tbc-msg{margin-top:6px;font-family:"STKaiti","KaiTi","Kaiti SC",var(--f-body);font-size:15px;}
+.tbc-acct{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(42,38,32,.15);font-size:15px;color:var(--ink);word-break:break-all;}
+.paper a.tbc-acct{color:#8f2f1f;border-bottom:0;}
+.paper a.tbc-acct:hover span{text-decoration:underline;}
+.tbc-acct em{flex:none;font-style:normal;font-size:12px;line-height:1.5;color:#fbf3e4;background:#b23a26;border-radius:2px;padding:0 6px;letter-spacing:.04em;}
+.tbc-acct span{flex:1;min-width:0;}
+.tbc-acct i{font-style:normal;flex:none;}
+.tbc-copy{flex:none;font:13px var(--f-body);padding:2px 8px;border:1px solid rgba(42,38,32,.35);background:transparent;border-radius:3px;cursor:pointer;color:var(--ink);}
+#tbCard small{display:block;font-size:11.5px;color:#7a6f5c;margin-top:3px;}
 #tbForm .go2{grid-column:1/-1;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 #tbForm.off input,#tbForm.off button{opacity:.45;pointer-events:none;}
 #tbMsg{font-size:13.5px;color:#3f6a4f;}
@@ -244,7 +271,7 @@ body.ready #veil{opacity:0;}
   #ba .sig span{writing-mode:horizontal-tb;font-size:18px;}
   .paper > div{padding:22px 18px 18px;}
   .paper h2{font-size:34px;}
-  #tbForm{grid-template-columns:1fr;}
+  #tbForm{grid-template-columns:minmax(0,1fr);}
   #tbList{min-height:210px;}
 }
 /* v52 中英文：两份文案并排写，只显示当前语言那份（html data-lang）；英文界面换拉丁字体，中文字（地名、题签）仍落回马善政体、思源宋体 */
@@ -440,16 +467,20 @@ body.ready #veil{opacity:0;}
 <div id="tibi" class="paper" hidden role="dialog" aria-label="题名壁" data-en-aria-label="Inscription wall"><div>
   <button class="close" id="tbClose" aria-label="关闭" data-en-aria-label="Close">×</button>
   <h2><span class="zh">题名壁</span><span class="en">Inscription Wall</span></h2>
-  <p style="font-size:14px;margin:0"><span class="zh">古人游山，爱在石壁上留名。走到这里的朋友，也请留下名字：会刻在玉女潭边的石屏上，后来的游人都看得到。</span><span class="en">Travellers in old China loved to leave their names on the rocks of the mountains they climbed. You who have come this far, leave yours too: it will be cut into the stone screen by the Jade Maiden Pool, for every later visitor to see.</span></p>
+  <p style="font-size:14px;margin:0"><span class="zh">古人游山，爱在石壁上留名。走到这里的朋友，也请留下名字：会刻在玉女潭边的石屏上，后来的游人都看得到。点开石壁上的名字，能看到题名人留下的社交账号。</span><span class="en">Travellers in old China loved to leave their names on the rocks of the mountains they climbed. You who have come this far, leave yours too: it will be cut into the stone screen by the Jade Maiden Pool, for every later visitor to see. Open a name on the wall to find the social account its owner left.</span></p>
   <div id="tbList" aria-live="polite"></div>
+  <div id="tbCard" hidden role="dialog" aria-label="题名" data-en-aria-label="Inscription"></div>
   <form id="tbForm" autocomplete="off">
     <label><span class="zh">名字</span><span class="en">Name</span><input id="tbName" required placeholder="如：张三" data-en-placeholder="e.g. Ada Lovelace"></label>
     <label><span class="zh">来自（可不填）</span><span class="en">From (optional)</span><input id="tbPlace" placeholder="如：杭州" data-en-placeholder="e.g. Galway"></label>
     <label class="wide"><span class="zh">留一句（可不填）</span><span class="en">A line of your own (optional)</span><input id="tbText" placeholder="二十字以内" data-en-placeholder="Up to 40 characters"></label>
+    <div class="tb-sns"><label for="tbHandle"><span class="zh">社交账号（可不填）</span><span class="en">Social account (optional)</span></label>
+      <div class="tb-snsrow"><select id="tbSns" aria-label="平台" data-en-aria-label="Platform"><option value="">选平台</option><option value="weibo">微博</option><option value="xhs">小红书</option><option value="x">X</option><option value="instagram">Instagram</option><option value="github">GitHub</option></select><input id="tbHandle" autocapitalize="off" spellcheck="false" placeholder="用户名，或贴上主页链接" data-en-placeholder="Username, or paste your profile link"></div>
+      <small><span class="zh">石壁上只刻名字，别人点开你的名字才看得到账号。带账号的题名要等主人过目，通过后才刻上。</span><span class="en">Only your name is carved on the stone; your account shows when someone opens your name. Entries with an account are carved once the host has looked them over.</span></small></div>
     <input id="tbHp" class="hp" tabindex="-1" aria-hidden="true" name="website">
     <div class="go2"><button type="submit"><span class="zh">题上石壁</span><span class="en">Carve It in Stone</span></button><span id="tbMsg"></span></div>
   </form>
-  <p class="tb-note"><span class="zh">请勿留电话、网址等联系方式；不雅的字句会被拦下。</span><span class="en">Please leave no phone numbers, web addresses or other contact details; improper words will be turned away. </span><a href="#" id="tbBa"><span class="zh">看跋</span><span class="en">Read the colophon</span></a> · <a href="#" id="tbGo"><span class="zh">去玉女潭看题名壁</span><span class="en">See the wall at the Jade Maiden Pool</span></a></p>
+  <p class="tb-note"><span class="zh">名字和留言里请勿留电话、网址；想让人找到你，填社交账号就好。不雅的字句会被拦下。</span><span class="en">Please keep phone numbers and web addresses out of your name and line; to let people find you, add a social account instead. Improper words will be turned away. </span><a href="#" id="tbBa"><span class="zh">看跋</span><span class="en">Read the colophon</span></a> · <a href="#" id="tbGo"><span class="zh">去玉女潭看题名壁</span><span class="en">See the wall at the Jade Maiden Pool</span></a></p>
 </div></div>
 <div id="dbg" hidden></div>
 <script type="module" src="js/main.js"></script>
