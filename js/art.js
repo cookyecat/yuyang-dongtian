@@ -148,6 +148,15 @@ export function terrainMaterial(tSlope, tRock, lobes = []) {
           earth = mix(earth, earth*.84 + INK*.05, smoothstep(.45, .3, apr)*smoothstep(.15, .3, apr)); // 土坪边一圈深一点的轮廓
           col = mix(col, earth, apr*.92);
         }
+        // v60 南边新山（world.js SOUTH3/4/5，v58 山脊式）：原来石绿身子、山头一抹石青，颜色单。原画的山是脚下赭、往上转石绿、山头石青：
+        // 坡脚（比周围低的凹处 crL < 0）、支脉间的沟里透赭土，背光的坡也带一层赭；平地（潭边、大像前）不上
+        {
+          float sR = smoothstep(24., 34., vW.z)*smoothstep(-112., -120., vW.x)*smoothstep(.06, .22, 1. - up);
+          float sft = smoothstep(-.05, -.6, crL + (n1 - .5)*.45 + (n3 - .5)*.15);
+          float fdl = clamp(vFold/1.1, -1., 1.), sv = .45 + .75*smoothstep(.15, -.55, fdl + (n3 - .5)*.3); // 顺着褶沟一道道往下拖，不成一团
+          vec3 och = mix(vec3(.54,.41,.27), vec3(.72,.58,.4), clamp(lit*.85 + (n2 - .5)*.4, 0., 1.));
+          col = mix(col, och, sR*(1. - rim*.8)*clamp((sft*.55 + gully*.3 + smoothstep(.5, .2, lit)*body*.12)*sv, 0., .7));
+        }
         // 超然亭一带（v32，Yang：地面要有风化、错落和层次）：台坎的陡面露出风化的赭土，顺坡一道道细流纹；台面仍是石绿
         float s5 = smoothstep(-204.,-198.,vW.x)*smoothstep(-129.,-135.,vW.x)*smoothstep(18.,12.,vW.z)*smoothstep(-50.,-44.,vW.z)*(1.-vPath);
         float stp = 1. - up;
@@ -303,7 +312,26 @@ export function rockMaterial(tRock, tCliff, { crest = false, niche = false, jade
           blue = mix(blue, bS, smoothstep(.69, .71, vM)*smoothstep(.81, .79, vM)*smoothstep(-77., -74., vW.x)*.9);
           // v46 卷尾（IMG_1260 水犀洞、1258 四陽洞）：山石是淡石绿灰（vM≈.78），向阳面泛浅，背面、脚下透赭
           vec3 bC = mix(mix(vec3(.42,.47,.41), vec3(.66,.69,.58), bl), vec3(.56,.5,.38), smoothstep(.35, .05, vH)*.55 + smoothstep(.1, .7, n.x)*.5);
-          blue = mix(blue, bC, smoothstep(.76, .77, vM)*smoothstep(.8, .79, vM)*smoothstep(-284., -290., vW.x));
+          float cB = smoothstep(.76, .77, vM)*smoothstep(.8, .79, vM);
+          blue = mix(blue, bC, cB*smoothstep(-284., -290., vW.x));
+          // v60 龍湫画境下半的石坎（原画 1261 下半）：向阳面是偏青的石绿，背光面、坎脚透赭褐
+          float s3f = smoothstep(-278., -276., vW.x)*smoothstep(-249., -251., vW.x)*smoothstep(2., 4., vW.z)*smoothstep(15., 13., vW.z);
+          vec3 b3 = mix(vec3(.36,.4,.34), vec3(.5,.55,.45), bl);                                   // 立面：灰绿
+          b3 = mix(b3, mix(vec3(.36,.28,.19), vec3(.5,.4,.27), bl), clamp(smoothstep(.6, .25, lit)*.75 + smoothstep(.4, .05, vH)*.5, 0., .85)); // 背光面、坎脚：赭褐
+          b3 = mix(b3, mix(vec3(.42,.52,.45), vec3(.58,.68,.57), bl), smoothstep(.6, .85, up)*smoothstep(.3, .6, vH)); // 坎面朝天：偏青的石绿
+          blue = mix(blue, b3, cB*s3f);
+          // v60 水犀洞双头峰（原画 1260）：不是石绿灰，是绢色里透赭的暖灰，背光面、石缝里是深赭，峰脚几处透石绿（原来通体发白像石膏）
+          float pk = smoothstep(-308., -306., vW.x)*smoothstep(-292., -294., vW.x)*smoothstep(-31., -29., vW.z)*smoothstep(-18., -20., vW.z)*cB;
+          vec3 bP = mix(vec3(.47,.4,.3), vec3(.72,.64,.49), bl);
+          bP = mix(bP, vec3(.4,.33,.24), smoothstep(.45, .1, lit)*.4);
+          bP = mix(bP, vec3(.43,.49,.42), smoothstep(.32, .06, vH)*.45);
+          blue = mix(blue, bP, pk);
+          // v60 四陽洞洞顶的石檐（原画 1258，main.js dome）：檐面朝天处淡石绿偏青，檐口立面绢黄透赭，背光处深赭
+          float dm = cB*smoothstep(-396., -394., vW.x)*smoothstep(-369., -371., vW.x)*smoothstep(-31., -29., vW.z)*smoothstep(-12.5, -14., vW.z);
+          vec3 bD = mix(vec3(.5,.44,.33), vec3(.71,.66,.52), bl);
+          bD = mix(bD, vec3(.42,.35,.26), smoothstep(.45, .1, lit)*.35);
+          bD = mix(bD, mix(vec3(.43,.51,.47), vec3(.6,.69,.62), bl), smoothstep(.55, .85, up));
+          blue = mix(blue, bD, dm);
           blue = mix(blue, mix(vec3(.47,.36,.25), vec3(.75,.62,.45), bl), smoothstep(.815, .825, vM)*smoothstep(.845, .835, vM)*smoothstep(-284., -290., vW.x)); // 四陽洞的暖赭岩脚（vM≈.83）
           // v57 卷尾峡谷两壁（vM≈.97，main.js wallSdf）：淡石绿灰，向阳面发白、背光偏青，只在壁脚透赭；石面不勾遮蔽线（大壁面上会绕成一圈圈木纹），改成竖的斧劈皴
           float gw = smoothstep(.955, .965, vM)*smoothstep(.985, .975, vM)*smoothstep(-392., -396., vW.x);
@@ -388,15 +416,17 @@ export function rockMaterial(tRock, tCliff, { crest = false, niche = false, jade
           float hemp = smoothstep(.66, .93, vnoise(vec2(hp*3.,  vW.y*.32 + vnoise(vec2(hp*.5, vW.y*.1))*2.)));
           float hk = .35;
           #ifdef PAINT
-            hk += .35*smoothstep(.765, .77, vM)*smoothstep(.85, .84, vM)*smoothstep(-286., -292., vW.x); // v47 卷尾的山石皴线重一些（原画水犀洞峰上满是竖皴）
+            float cel = smoothstep(.765, .77, vM)*smoothstep(.85, .84, vM)*smoothstep(-286., -292., vW.x); // 卷尾的山石（水犀洞双头峰、四陽洞洞顶石台等距离场大石）
+            hk += .35*cel; // v47 卷尾的山石皴线重一些（原画水犀洞峰上满是竖皴）
+            hk *= 1. - max(gw, cel); // v60 卷尾的大石同峡壁：这道皴在大石面上也绕成木纹，改在下面按投影画
             hk *= 1. - gw; // v59 峡壁不用这道竖皴：hp 是世界坐标（几百米）点乘随法线转的切向，法线稍一变 hp 就跳几十格，大壁面上皴线顺着法线的等值线绕成一圈圈木纹。峡壁的皴改在下面按投影画
           #endif
           col = mix(col, col*.76, hemp*steep*hk);
           #ifdef PAINT
-          if (gw > .01) {
+          if (max(gw, cel) > .01) {
             // v59 峡壁斧劈皴：一笔笔往下略斜劈的长条淡墨块面，上头落笔重，往下淡出，笔里带干笔的飞白，少数一侧勾一道利边（斧口）。
             // 笔按格子落，一组组的，组与组之间按大块噪声留白（不满壁撒匀）。壁面大体朝南北，取 x–y、z–y 两个投影按法线混
-            float ax = 0., al = 0., hv = 0.;
+            float ax = 0., al = 0., hv = 0., vl = 0.;
             for (int pj = 0; pj < 2; pj++) {
               float wgt = pj == 0 ? smoothstep(.25, .6, abs(n.z)) : smoothstep(.25, .6, abs(n.x));
               if (wgt < .01) continue;
@@ -404,6 +434,9 @@ export function rockMaterial(tRock, tCliff, { crest = false, niche = false, jade
               vec2 q = vec2((pj == 0 ? vW.x : vW.z)*sg, vW.y);
               // 顺壁竖下的披麻淡皴（按投影取，不随法线跳）
               hv = max(hv, smoothstep(.62, .9, vnoise(vec2(q.x*2.4, q.y*.3 + vnoise(vec2(q.x*.4, q.y*.08))*2.)))*wgt);
+              // v60 顺峰势的长墨线（原画水犀洞峰上一道道竖着的长皴线）：竖线随低频噪声左右摆，一段段断开
+              float lc = q.x*.85 + (vnoise(vec2(q.x*.25, q.y*.05)) - .5)*2.2, lcw = fwidth(lc) + 1e-4, lcd = min(fract(lc), 1. - fract(lc));
+              vl = max(vl, (1. - smoothstep(lcw*.6, lcw*1.8 + .02, lcd))*smoothstep(.45, .7, vnoise(vec2(floor(lc)*3.1 + 1.3, q.y*.16)))*smoothstep(.6, .2, lcw)*wgt);
               vec2 cs = vec2(1.8, 4.), r2 = vec2(q.x + q.y*.28, q.y);   // 斜约 15°
               vec2 ci = floor(r2/cs), cf = fract(r2/cs);
               float h1 = hash12(ci + float(pj)*17.3 + sg*5.1), h2 = hash12(ci*1.7 + 3.1), h3 = hash12(ci*2.3 + 7.7);
@@ -420,6 +453,9 @@ export function rockMaterial(tRock, tCliff, { crest = false, niche = false, jade
               al = max(al, (1. - smoothstep(fwp*.7, fwp*2. + .015, abs(px + W*.7)))*smoothstep(.3, .6, t)*smoothstep(1., .9, t)*step(h2, .45)*wgt);
             }
             float st = gw*smoothstep(.1, .26, vH)*(1. - smoothstep(.5, .85, up));
+            float sc = cel*(1. - smoothstep(.55, .9, up));
+            col = mix(col, col*.7, hv*.55*sc);
+            col = mix(col, INK*.85 + col*.25, vl*.55*sc);
             col = mix(col, col*.76, hv*.5*st);
             col = mix(col, col*vec3(.6,.65,.67), ax*.55*st);
             col = mix(col, INK*.85 + col*.25, al*.45*st);
