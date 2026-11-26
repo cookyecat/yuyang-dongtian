@@ -106,7 +106,8 @@ export function terrainMaterial(tSlope, tRock, lobes = []) {
         float c2 = smoothstep(-34.,-42.,vW.x)*smoothstep(-206.,-196.,vW.x); // 第二章（IMG_1265–1263）的山是石绿坡，山头少罩石青
         // v36 磐玉隈右边的松坡（x −46..0 已归第二章的地形 grove7）：镜头在第二章时也按石绿坡上色，不罩石青；在第一章看过去照旧
         float g7 = smoothstep(-50.,-42.,vW.x)*smoothstep(4.,-6.,vW.x)*smoothstep(-20.,-27.,vW.z)*smoothstep(-70.,-60.,vW.z)*smoothstep(-30.,-42.,cameraPosition.x);
-        rim *= 1. - .72*max(c2, g7);
+        float s5s = smoothstep(26.,40.,vW.z)*smoothstep(-218.,-208.,vW.x)*smoothstep(-120.,-130.,vW.x); // v56 超然亭对面合拢的山：同 v50 南山，山体灰青，几个高山头罩石青
+        rim *= 1. - .72*max(c2*(1. - s5s), g7);
         rim *= 1. - .85*smoothstep(203., 210., vW.x)*smoothstep(244., 238., vW.x); // 大觀廊左坡（原画 IMG_1270）是石绿坡，不罩石青
         // v44 玉女潭后面的远山（原画 IMG_1266 画顶那几道山）：淡赭绿、向阳面泛黄，几处偏石绿，只有零星山头一块石青
         float far8 = smoothstep(-72.,-100.,vW.z)*smoothstep(-6.,10.,vW.x)*smoothstep(200.,180.,vW.x);
