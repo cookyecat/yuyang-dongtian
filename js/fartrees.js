@@ -52,7 +52,7 @@ function farTreeAtlas() {
   return t;
 }
 
-const CELL = { pine: 0, tallpine: 0, fir: 0, dwarfpine: 3, broad: 1, old: 1, cypress: 1, bamboo: 2, shrub: 3 };
+const CELL = { pine: 0, tallpine: 0, fir: 0, dwarfpine: 3, broad: 1, old: 1, cypress: 1, bamboo: 2, shrub: 3, redshrub: 3 };
 
 // items: [{ x, y, z, w, h, type }]；r0..r1 是淡入的那一圈（水平距离）
 export function createFarTrees(items, r0, r1) {

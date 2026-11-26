@@ -389,9 +389,42 @@ export function rockMaterial(tRock, tCliff, { crest = false, niche = false, jade
           float hk = .35;
           #ifdef PAINT
             hk += .35*smoothstep(.765, .77, vM)*smoothstep(.85, .84, vM)*smoothstep(-286., -292., vW.x); // v47 卷尾的山石皴线重一些（原画水犀洞峰上满是竖皴）
-            hk += .3*gw; // v57 峡壁的斧劈皴
+            hk *= 1. - gw; // v59 峡壁不用这道竖皴：hp 是世界坐标（几百米）点乘随法线转的切向，法线稍一变 hp 就跳几十格，大壁面上皴线顺着法线的等值线绕成一圈圈木纹。峡壁的皴改在下面按投影画
           #endif
           col = mix(col, col*.76, hemp*steep*hk);
+          #ifdef PAINT
+          if (gw > .01) {
+            // v59 峡壁斧劈皴：一笔笔往下略斜劈的长条淡墨块面，上头落笔重，往下淡出，笔里带干笔的飞白，少数一侧勾一道利边（斧口）。
+            // 笔按格子落，一组组的，组与组之间按大块噪声留白（不满壁撒匀）。壁面大体朝南北，取 x–y、z–y 两个投影按法线混
+            float ax = 0., al = 0., hv = 0.;
+            for (int pj = 0; pj < 2; pj++) {
+              float wgt = pj == 0 ? smoothstep(.25, .6, abs(n.z)) : smoothstep(.25, .6, abs(n.x));
+              if (wgt < .01) continue;
+              float sg = pj == 0 ? sign(n.z + 1e-4) : -sign(n.x + 1e-4); // 两壁对看时笔势一致
+              vec2 q = vec2((pj == 0 ? vW.x : vW.z)*sg, vW.y);
+              // 顺壁竖下的披麻淡皴（按投影取，不随法线跳）
+              hv = max(hv, smoothstep(.62, .9, vnoise(vec2(q.x*2.4, q.y*.3 + vnoise(vec2(q.x*.4, q.y*.08))*2.)))*wgt);
+              vec2 cs = vec2(1.8, 4.), r2 = vec2(q.x + q.y*.28, q.y);   // 斜约 15°
+              vec2 ci = floor(r2/cs), cf = fract(r2/cs);
+              float h1 = hash12(ci + float(pj)*17.3 + sg*5.1), h2 = hash12(ci*1.7 + 3.1), h3 = hash12(ci*2.3 + 7.7);
+              float dens = smoothstep(.32, .7, vnoise(ci*vec2(.3, .45) + float(pj)*5. + sg*2.));
+              if (h1 > .12 + .6*dens) continue;
+              vec2 p = (cf - vec2(.32 + .36*h2, .5 + .1*(h3 - .5)))*cs;   // 笔心为原点（米）
+              float L = cs.y*(.6 + .25*h3), t = p.y/L + .5;              // t：0 笔尾（下）… 1 落笔（上）
+              float W = cs.x*(.2 + .12*h2)*(.5 + .5*smoothstep(0., 1., t));
+              float px = p.x + .12*sin(p.y*1.1 + h1*6.);                  // 笔身略弯
+              float body = smoothstep(W, W*.15, abs(px - W*.3))*smoothstep(0., .45, t)*smoothstep(1., .9, t); // 墨偏在斧口一侧
+              float dry = smoothstep(.15, .6, vnoise(vec2(px*6. + h1*9., p.y*.6)));
+              ax = max(ax, body*mix(.4, 1., smoothstep(.45, 1., t))*mix(1., dry, .6)*wgt);
+              float fwp = fwidth(px) + 1e-4;
+              al = max(al, (1. - smoothstep(fwp*.7, fwp*2. + .015, abs(px + W*.7)))*smoothstep(.3, .6, t)*smoothstep(1., .9, t)*step(h2, .45)*wgt);
+            }
+            float st = gw*smoothstep(.1, .26, vH)*(1. - smoothstep(.5, .85, up));
+            col = mix(col, col*.76, hv*.5*st);
+            col = mix(col, col*vec3(.6,.65,.67), ax*.55*st);
+            col = mix(col, INK*.85 + col*.25, al*.45*st);
+          }
+          #endif
         }
         #endif
         #ifdef PAINT
@@ -513,10 +546,10 @@ export function cliffMaterial(tCliff) {
 }
 
 // ---------- 树叶卡片：alpha 测试 + 写深度，不靠排序，所以转镜头不会撕裂 ----------
-export function foliageMaterial(map, { a2c = false, tint = 1, cl = false } = {}) {
+export function foliageMaterial(map, { a2c = false, tint = 1, cl = false, hue = null } = {}) {
   const m = new THREE.ShaderMaterial({
-    defines: cl ? { LEAF_CL: 1 } : {},
-    uniforms: { map: { value: map }, time: { value: 0 }, tint: { value: tint } },
+    defines: { ...(cl ? { LEAF_CL: 1 } : {}), ...(hue ? { LEAF_HUE: 1 } : {}) },
+    uniforms: { map: { value: map }, time: { value: 0 }, tint: { value: tint }, hue: { value: new THREE.Vector3(...(hue || [1, 1, 1])) } },
     side: THREE.DoubleSide,
     vertexShader: /* glsl */`
       attribute vec4 aCl; attribute vec3 aPN;
@@ -550,11 +583,15 @@ export function foliageMaterial(map, { a2c = false, tint = 1, cl = false } = {})
         #endif
         gl_Position=projectionMatrix*viewMatrix*w; }`,
     fragmentShader: /* glsl */`
-      uniform sampler2D map; uniform float tint; varying vec2 vUv; varying float vShade; varying vec3 vTint; varying float vFace;
+      uniform sampler2D map; uniform float tint; uniform vec3 hue; varying vec2 vUv; varying float vShade; varying vec3 vTint; varying float vFace;
       void main(){ vec4 t=texture2D(map,vUv);
         // 卡片越侧对镜头，留下的叶子越少（只剩最实的几簇），不再露出纸边
         if(t.a < mix(.5, .97, smoothstep(.42, .1, vFace))) discard;
-        float l=dot(t.rgb,vec3(.3,.59,.11)); vec3 g=mix(t.rgb, l*vec3(.92,1.,.84), .3); vec3 c=g*vTint*tint*1.08*vShade; gl_FragColor=vec4(c,.5); } // alpha .5 标记为树叶，后处理不在叶隙上勾线`,
+        float l=dot(t.rgb,vec3(.3,.59,.11)); vec3 g=mix(t.rgb, l*vec3(.92,1.,.84), .3);
+        #ifdef LEAF_HUE
+          g = l*hue; // v59 红叶（龍湫洞口石檐上的红树）：叶卡按明暗换成朱赭
+        #endif
+        vec3 c=g*vTint*tint*1.08*vShade; gl_FragColor=vec4(c,.5); } // alpha .5 标记为树叶，后处理不在叶隙上勾线`,
   });
   m.alphaToCoverage = a2c;
   return m;
