@@ -363,8 +363,9 @@ function buildRidges(spec, seed) {
   // 主脊本身收窄（横宽 = 脊高 × wk × MK），坡面交给支脉撑开：支脉从脊上 95% 的高度出发，半腰还有 64–74%，比主脊同一处的坡面高出好几米，
   // 一道道山梁凸在坡上，梁与梁之间是深沟（俯看像叶脉）。支脉横宽 = 脊高 × SWK，最长 = spur × SL
   const MK = 0.6, SWK = 0.42, SL = 1.4, SM = 0.64;
+  G.crests = []; // v60 主脊线（撒脊上成列的小松用）
   for (const { pts, wk = 1.05, spur = 20, spurS = 9 } of spec) { // spur：往北（朝游线）的支脉最长多少米；spurS：往南的（两道脊之间要留出谷，放云）
-    group(pts, spur ? wk * MK : wk);
+    group(pts, spur ? wk * MK : wk); G.crests.push(pts);
     if (!spur) continue;
     const L = []; let tot = 0;
     for (let i = 0; i < pts.length - 1; i++) { const l = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); L.push(l); tot += l; }
@@ -423,6 +424,7 @@ const SOUTH5 = buildRidges([
   { pts: [[-206, 32, 10], [-197, 35, 6], [-190, 37, 14], [-180, 35, 7], [-171, 34, 17], [-163, 38, 8], [-157, 40, 12], [-150, 35, 6], [-143, 31, 15], [-129, 27, 9]], wk: 0.95, spur: 7 },
   { pts: [[-216, 58, 10], [-196, 64, 20], [-179, 57, 14], [-162, 67, 25], [-145, 59, 16], [-129, 62, 20], [-116, 59, 13]], wk: 0.9, spur: 12, spurS: 8 },
   { pts: [[-222, 83, 16], [-206, 81, 15], [-187, 84, 27], [-174, 85, 21], [-163, 84, 31], [-151, 82, 22], [-140, 81, 26], [-120, 80, 26]], wk: 0.9, spur: 10, spurS: 8 }], 5802);
+export const southCrests = () => [...SOUTH3.crests, ...SOUTH4.crests, ...SOUTH5.crests]; // v60 南边三片山的主脊线 [[x, z, 脊高], …]
 export const S56 = { off: false }; // 撒草时暂时关掉（草按原来的地形撒，随机序列不变，撒完再落到新地形上）
 export const south5Mask = (x, z) => smooth(28, 40, z) * smooth(-218, -208, x) * smooth(-120, -130, x); // 山体上色（不铺草坡色）的范围
 function south5(x, z, h) {

@@ -6,7 +6,7 @@ import { PATH, PATH_V29, ZONES, STAGES, PEOPLE, ACTIONS } from './data.js';
 import { MOYA, CAVE, caveLocal, inCave, buildTerrainGeometry, buildTerrainPatch, terrainHeight, surfaceTop, groundHeight, waterLevel, pathAt, slopeAt, blocked, smooth, rand, fbm,
   POND, POOL, STREAM, STREAM2, PADS, COLLIDERS, addSurface, WORLD, distToStream, pondShape, LOBED, FORE, foreMound, MASSIF, QN_STAIRS, massifAt, distToLine, LAYOUT_V21, DGL, daguanWallTop, CH2, PIAO, PANYU, CHAORAN, STAIRS2, MASSIF2, rocks2At, withOldPath, useOldPath, enterV33, exitV33, S56, pathOn, pathV33At, gorge6,
   CH3, ZEN3, ZEN3B, GY3, POLE3, MOYA3, POOL3, GROTTO3, LONGQIU3, PADS_NOW, POOLW, CHUPING, back8,
-  CH4, XI4, PEAK4, SIYANG4, QD4, STREAM4, gorgeAt4, FOLD } from './world.js';
+  CH4, XI4, PEAK4, SIYANG4, QD4, STREAM4, gorgeAt4, FOLD, southCrests } from './world.js';
 import { PAL, loadTex, terrainMaterial, rockMaterial, cliffMaterial, foliageMaterial, flatMaterial,
   cloudMaterial, leafClumpTexture, tuftTexture, pineTexture, bambooTexture, cloudTexture, createPost } from './art.js';
 import { Kit, COL, buildYuguangGe, YUGUANG, buildHexPavilion, buildHall, buildArchBridge, buildCorridor,
@@ -600,6 +600,7 @@ let moyaCliff = null;
 }
 const RED3 = []; // v59 龍湫洞口石檐上的红叶（种树时并进 TREES.redshrub）
 const GORGE_TUFT = []; // v59 卷尾峡底碎石的位置（苔草围着长）
+const TUFT60 = []; // v60 龍湫画境下半石坎脚下的苔草位置
 // v39 龍湫（IMG_1261）：层层赭灰巨岩里一个深洞，洞里一潭水、几根石柱；洞口上方几层石青石檐往外探，檐上几丛红叶；洞右前一块大青石题“龍湫”。
 // 原画里没有白瀑布，旧的瀑布撤掉。位置按 S03 画境镜头反投影（ch3/cam.py）
 {
@@ -639,6 +640,15 @@ const GORGE_TUFT = []; // v59 卷尾峡底碎石的位置（苔草围着长）
   // 原画红叶长在洞口左沿，从檐顶一路挂到左边石壁上；y 是石顶高（射线量的）
   for (const [x, y, z, sc, rot] of [[-273.4, 15.3, -22.8, 1.0, 0.4], [-272.3, 15.6, -23.9, 0.8, 2.1], [-274.4, 15.25, -24.0, 0.85, 1.2], [-275.4, 9.5, -23.0, 0.95, 3.3], [-275.2, 9.75, -24.4, 0.75, 4.0], [-270.4, 13.75, -21.6, 0.7, 4.4]])
     RED3.push([x, z, sc, rot, 1, 0.92, y]);
+  // v60 画境下半（原画 1261 下半是一层层石坎、几块大石，游戏里原来是一整片光滑的绿包）：洞前那道土包（FORE3）顶上露出几块扁平的石坎、
+  // 左边一块大些的石头，向阳面石绿、背光面和脚下透赭（tone .78，art.js 在这一片另给色），坎脚几块小石青石、几丛苔草。
+  // 只摆在画境看得见的那一条（z 6–10）；x −266..−262 留一道缓坡下到路对面的潭，不挡路
+  for (const [x, z, w, d, k, ry, sq, sd] of [[-271.0, 7.6, 1.3, 1.1, 1.05, 0.35, 0.5, 6021], [-273.4, 8.5, 1.0, 0.8, 0.75, -0.6, 0.4, 6002],
+    [-267.9, 8.7, 1.5, 0.9, 0.65, 0.15, 0.6, 6011], [-259.7, 8.8, 1.3, 0.8, 0.55, -0.1, 0.6, 6012], [-257.2, 7.9, 1.5, 1.0, 0.8, 0.25, 0.6, 6013], [-254.8, 9.4, 1.2, 0.8, 0.55, -0.3, 0.6, 6014]]) {
+    let lo = Infinity; for (const a of [-1, 0, 1]) for (const b of [-1, 0, 1]) lo = Math.min(lo, H(x + a * w, z + b * d)); // 脚埋到坡上最低处以下，坡下那一侧也不悬空
+    blk(x, z, w, d, lo - 0.5, H(x, z) + k, { craggy: true, squat: sq, tone: 0.78, ry, seed: sd, col: Math.min(w, d) * 0.9 }); TUFT60.push([x, z + d, 0.9]);
+  }
+  for (const [x, z, sz, sd] of [[-261.4, 9.9, 0.45, 6003], [-269.0, 10.0, 0.38, 6004], [-254.6, 10.6, 0.42, 6005]]) { const y = H(x, z); blk(x, z, sz, sz * 0.8, y - 0.3, y + sz * 1.3, { craggy: true, tone: BL, ry: x, seed: sd, col: 0 }); TUFT60.push([x, z, sz * 1.6]); }
   // 第三章其余的石青石：禪窩右边云里露出的一堆、左边绿坡脚下几块、觀音龛旁两块
   blk(-216, -30.5, 3.4, 3, 10.5, 20.5, { craggy: true, tone: BL, ry: 0.3 });
   blk(-212.6, -28.4, 2.6, 2.4, 10.5, 16.8, { craggy: true, tone: 0.5, ry: -0.4 });
@@ -691,7 +701,7 @@ const WF = (() => {
   return { fall, top: W(path[0].p), bottom: W(last) };
 })();
 wfPool.material.uniforms.churn.value.set(WF.bottom.x, WF.bottom.z - 0.3, 3.2, 1); // v48 落水处一片翻涌的白沫
-let peakTop4 = () => null;
+let peakTop4 = () => null, domeTop4 = () => null;
 // v46 卷尾·洞壑（IMG_1260 水犀洞、IMG_1258 四陽洞）：照原画在画境镜头里反投影摆（data.js S02、S01 的 view）
 // 石色 aM：.78 淡石绿灰（水犀洞尖峰、四陽洞一带的山石，见 art.js），.95 赭灰，.45–.5 石青
 {
@@ -770,22 +780,30 @@ let peakTop4 = () => null;
     for (const [dx, w, h] of [[-3.3, 1.3, 2.6], [-0.2, 1.2, 2.8], [2.9, 1.25, 2.5]]) { const g = new THREE.SphereGeometry(1, 16, 12); g.scale(w * KX, h * KY, 0.5);
       k.add(g, dark, 0, new THREE.Matrix4().makeTranslation(S.x + dx * KX, y - 0.4 * KY, S.z - 1.2)); }
     staticParts.push(k.geometry()); }
-  // v47 洞顶一大块淡石绿的石台（原画 1258 u .38–.78、v .17–.45）：一层层横的石坎，左头矮一截；洞开在它脚下的赭色岩脚里
+  // v47 洞顶一大块淡石绿的石台（原画 1258 u .38–.78、v .17–.45）：左头矮一截；洞开在它脚下的赭色岩脚里
+  // v60 原来三块圆角厚板软软地融在一起、顶面和立面之间是一道圆肩，从画境看像一只坐垫。原画是一整块石台，顶面淡石绿、往后缓缓升高接上后山；
+  // 前沿一道石檐压出来，檐下收进去一道深影，立面半腰再一道浅檐；右头一级级跌下去。檐面朝天处淡石绿，立面绢黄透赭（art.js）
   {
     const sm = (a, b, k) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; };
-    const slab = (x, y, z, cx, cz, ex, ez, top, crown) => {
-      const dx = (x - cx) / ex, dz = (z - cz) / ez, q = Math.pow(Math.pow(Math.abs(dx), 3) + Math.pow(Math.abs(dz), 3), 1 / 3) - 1;
-      return Math.max(q * Math.min(ex, ez), y - (top - crown * (dx * dx + 0.6 * dz * dz)));
+    // 一块石台：立面随高度进出（f：平面放大倍数），檐口在 eave，半腰浅檐在 mid；顶面往后升高（rise 米/米）、两头略低
+    const slab = (x, y, z, cx, cz, ex, ez, top, eave, mid, rise, k) => {
+      const f = 0.86 + 0.14 * smooth(eave - 0.5, eave + 0.1, y) + 0.05 * smooth(mid - 0.4, mid, y) * smooth(mid + 0.45, mid + 0.05, y);
+      const dx = (x - cx) / (ex * f), dz = (z - cz) / (ez * f);
+      const q = Math.pow(Math.pow(Math.abs(dx), 3) + Math.pow(Math.abs(dz), 3), 1 / 3) - 1 + 0.22 * (vn3(x * 0.26, k * 5.3, z * 0.26, 59) - 0.5);
+      const th = top + rise * Math.max(-2, Math.min(5, cz - z)) - 0.5 * dx * dx;
+      return Math.max(q * Math.min(ex, ez), y - th);
     };
     const dome = (x, y, z) => {
-      let d = sm(slab(x, y, z, -380.6, -20.2, 8.8, 5.6, 12.9, 1.8), slab(x, y, z, -388.8, -19.6, 3.8, 4.4, 10.3, 0.8), 1.2);
-      d = sm(d, slab(x, y, z, -383.5, -24.5, 6, 3.5, 13.7, 1.2), 1.5);   // 后半再高一点（石台不是一块平板）
-      if (Math.abs(d) < 0.95) d += 0.42 * (vn3(x * 0.16, y * 0.85, z * 0.16, 57) - 0.5) + 0.16 * (vn3(x * 0.7, y * 1.6, z * 0.7, 58) - 0.5); // 横的石坎（离石面远的格点不算）
+      const dr = 0.5 * smooth(-376.9, -376.1, x + 0.6 * (z + 18)) + 0.5 * smooth(-374.3, -373.5, x + 0.6 * (z + 18)); // 右头两级跌下去（每级各有檐口）
+      let d = slab(x, y, z, -381.0, -20.0, 9.0, 5.5, 12.8 - 1.4 * dr, 11.5 - 1.4 * dr, 9.8 - 0.9 * dr, 0.2, 1);
+      d = sm(d, slab(x, y, z, -388.8, -19.4, 3.9, 4.4, 10.1, 9.3, 8.2, 0.15, 2), 0.4);                         // 左头矮一截
+      if (Math.abs(d) < 0.9) d += 0.12 * (vn3(x * 0.16, y * 0.85, z * 0.16, 57) - 0.5) + 0.12 * (vn3(x * 0.7, y * 1.6, z * 0.7, 58) - 0.5); // 横的石纹（离石面远的格点不算）
       return Math.max(d, 4 - y);
     };
-    const A = sdfArrays(dome, [-394, -370.6, 4, 15, -29, -13.6], MOBILE ? 0.45 : 0.32, { hy: [7, 14], tone: CEL, occ: 0.5 });
+    const A = sdfArrays(dome, [-394, -370.6, 4, 15, -29, -13.4], MOBILE ? 0.45 : 0.3, { hy: [7, 14], tone: CEL, occ: 0.5 });
     const g = new THREE.BufferGeometry(); for (const [k, n] of [['position', 3], ['normal', 3], ['aH', 1], ['aM', 1], ['aO', 1]]) g.setAttribute(k, new THREE.BufferAttribute(A[k], n));
     PAN7.push(g);
+    domeTop4 = (x, z) => { for (let y = 15; y > 4; y -= 0.05) if (dome(x, y, z) < 0) return y; return null; }; // 石檐上点灌丛用
   }
   blk(-389.6, -16.6, 3.0, 2.6, 8.4, 12.6, { tone: 0.66, ry: 0.25, seed: 4672, col: 1.2, keepY: true }); // v47 石台左头压着一块青灰的大石（原画 u .34–.4）
   // 跌水的台阶石：出洞口三级，再缓缓流下去
@@ -1312,7 +1330,7 @@ exitV33();
   add('dwarfpine', -388.6, 8.7, 0.7, 0.66); add('dwarfpine', -380.4, 8.6, 0.6, 0.66); add('shrub', -391.2, 8.8, 0.7, 0.66); // 镜头脚下坡沿的蕨丛（原画下缘）
   add('shrub', -385.6, 8.6, 0.34, 0.6); add('shrub', -386.2, 8.5, 0.3, 0.6); add('shrub', -384.9, 8.75, 0.26, 0.6); add('shrub', -382.5, 8.6, 0.3, 0.62); // v47 画境里正好落在下缘：一丛墨绿的蕨（原画下缘中间偏左）
   // v47 洞顶石台上不种树（原画石台是一大块光石，只在石坎上几丛点叶）
-  for (const [x, z, y] of [[-386.2, -16.4, 9.9], [-376.4, -16.4, 11.3], [-381, -24.6, 13.5], [-390.6, -18.4, 9.7]]) add('shrub', x, z, 0.5 + r() * 0.2, 0.7, y);
+  for (const [x, z] of [[-386.2, -16.4], [-376.4, -16.4], [-381, -24.6], [-390.6, -18.4]]) add('shrub', x, z, 0.5 + r() * 0.2, 0.7, (domeTop4(x, z) ?? 9.8) - 0.1); // v60 高度跟着石檐走
   add('old', -394.6, -12, 0.78, 0.78);
   for (const [x, z, sc] of [[-389.4, -0.4, 0.75], [-387.8, -0.6, 0.6], [-391.6, 0.0, 0.7], [-385.2, -0.9, 0.55], [-393.4, -0.2, 0.6]]) add(r() < 0.5 ? 'dwarfpine' : 'shrub', x, z, sc, 0.64); // 大绿坡坡顶一溜墨绿的灌丛（原画坡顶的点叶）                                              // 坡上一株虬曲的老树
   for (const [x, z] of [[-392.7, -15.5], [-390.6, -15.2], [-388.5, -14.9], [-386.6, -13.4], [-385.2, -11.6], [-389.6, -12.6]]) add(r() < 0.35 ? 'dwarfpine' : 'shrub', x, z, 0.85 + r() * 0.35, 0.68); // 洞左一溜灌丛
@@ -1345,6 +1363,29 @@ exitV33();
   // 中间一道、地图边上一道：远山上的松是一簇簇小点
   grove('pine', MOBILE ? 4 : 7, -162, 67, 6, 0.6, 0.85, 0.82, 3); grove('broad', MOBILE ? 2 : 3, -195, 64, 4, 0.75, 0.95, 0.74, 3.2); grove('pine', MOBILE ? 3 : 5, -144, 58, 4, 0.6, 0.8, 0.82, 3);
   grove('pine', MOBILE ? 4 : 6, -186, 86, 6, 0.55, 0.75, 0.84, 3.2); grove('pine', MOBILE ? 3 : 5, -141, 84, 5, 0.55, 0.75, 0.84, 3.2);
+}
+// v60 南边新山（world.js SOUTH3/4/5）：主脊上一排排直立的小松（原画远山脊上成列的小松），一段有一段空，不撒匀。
+// 只种中间一道、地图边上一道（脊高 ≥ 9 米）；近处几道矮岗 v50、v56 已有几丛。追加在列表末尾，别处的树一棵不动
+{
+  const r = rand(6060), gap = MOBILE ? 2.4 : 1.3;
+  for (const pts of southCrests()) {
+    if (Math.max(...pts.map((p) => p[2])) < 9) continue;
+    let on = r() < 0.5, left = 4 + r() * 8, next = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [ax, az] = pts[i], [bx, bz] = pts[i + 1], L = Math.hypot(bx - ax, bz - az), tx = (bx - ax) / L, tz = (bz - az) / L;
+      for (let s = 0; s < L; s += 0.5) {
+        left -= 0.5; if (left <= 0) { on = !on; left = on ? 5 + r() * 9 : 8 + r() * 14; next = 0; }
+        if (!on || (next -= 0.5) > 0) continue;
+        next = gap + r() * 1.1;
+        // 真脊线：ridgeHeight 把脊线扭弯了 ±3 米，在法向 ±5 米里找最高处
+        const x0 = ax + tx * s, z0 = az + tz * s; let cx = x0, cz = z0, cy = -1e9;
+        for (let o = -5; o <= 5; o += 0.5) { const x = x0 - tz * o, z = z0 + tx * o, y = terrainHeight(x, z); if (y > cy) { cy = y; cx = x; cz = z; } }
+        const j = (r() - 0.5) * 1.4, x = cx - tz * j, z = cz + tx * j, sc = 0.5 + r() * 0.28;
+        if (z > 86.5 || slopeAt(x, z) > 1.2) continue;
+        TREES.pine.push([x, z, sc, r() * 100, 1, 0.8]);
+      }
+    }
+  }
 }
 const foliageMats = [], treeSets = [];
 function plantTrees(type, variants, maps, o = {}) { // o.as：借别的树种的形；o.hue：叶色（v59 红叶）
@@ -1464,6 +1505,7 @@ plantTrees('redshrub', [75, 76], [tex.clump[0], tex.clump[3]], { as: 'shrub', hu
     const X = x + (r() - 0.5) * 0.3, P = pathAt(X), w = gorgeAt4(X, P.z - sd).w;
     put(X, P.z - sd * (w - 0.05 - r() * 0.45), 0.4 + r() * 0.35);
   }
+  for (const [x, z, sz] of TUFT60) for (let i = 0, n = 2 + Math.floor(r() * 3); i < n; i++) { const a = r() * 6.28, d = sz * 0.55 + r() * 0.45; put(x + Math.cos(a) * d, z + Math.sin(a) * d, 0.4 + r() * 0.35); } // v60 龍湫画境下半的石坎脚（追加在后，峡底的苔草不变）
   const lm = new THREE.InstancedMesh(geo, fm, Math.max(1, items.length)); lm.frustumCulled = false; lm.layers.set(1);
   lm.setColorAt(0, new THREE.Color(1, 1, 1));
   treeSets.push({ tm: null, lm, items, r: MOBILE ? 50 : 85 }); scene.add(lm);
