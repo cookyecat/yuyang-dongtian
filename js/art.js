@@ -73,12 +73,12 @@ export function terrainMaterial(tSlope, tRock, lobes = []) {
   return new THREE.ShaderMaterial({
     uniforms: { tSlope: { value: tSlope }, tRock: { value: tRock }, lobes: { value: L4 } },
     vertexShader: /* glsl */`
-      attribute float aRel; attribute float aPath; attribute float aCrest; attribute float aCrestL; attribute float aMound; attribute float aLawn; attribute float aRiser; attribute float aGorge;
-      varying vec3 vW; varying vec3 vN; varying float vRel; varying float vPath; varying float vCr; varying float vCrL; varying float vMd; varying float vLawn; varying float vRiser; varying float vGorge;
-      void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; vN=normal; vRel=aRel; vPath=aPath; vCr=aCrest; vCrL=aCrestL; vMd=aMound; vLawn=aLawn; vRiser=aRiser; vGorge=aGorge; gl_Position=projectionMatrix*viewMatrix*w; }`,
+      attribute float aRel; attribute float aPath; attribute float aCrest; attribute float aCrestL; attribute float aMound; attribute float aLawn; attribute float aRiser; attribute float aGorge; attribute float aFold;
+      varying vec3 vW; varying vec3 vN; varying float vRel; varying float vPath; varying float vCr; varying float vCrL; varying float vMd; varying float vLawn; varying float vRiser; varying float vGorge; varying float vFold;
+      void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; vN=normal; vRel=aRel; vPath=aPath; vCr=aCrest; vCrL=aCrestL; vMd=aMound; vLawn=aLawn; vRiser=aRiser; vGorge=aGorge; vFold=aFold; gl_Position=projectionMatrix*viewMatrix*w; }`,
     fragmentShader: /* glsl */`
       uniform sampler2D tSlope, tRock; uniform vec4 lobes[3];
-      varying vec3 vW; varying vec3 vN; varying float vRel; varying float vPath; varying float vCr; varying float vCrL; varying float vMd; varying float vLawn; varying float vRiser; varying float vGorge;
+      varying vec3 vW; varying vec3 vN; varying float vRel; varying float vPath; varying float vCr; varying float vCrL; varying float vMd; varying float vLawn; varying float vRiser; varying float vGorge; varying float vFold;
       ${COMMON}${COLORS}${CUN}
       void main(){
         vec3 n=normalize(vN);
@@ -189,6 +189,11 @@ export function terrainMaterial(tSlope, tRock, lobes = []) {
         // 披麻皴：顺坡的长条淡墨线，远处渐隐
         float hp = hemp(vW, n, .26) * smoothstep(.45,.75,vnoise(vW.xz*.05+vW.y*.04)) * (1.-vPath) * min(1., .3 + body*.7 + s5*.5) * (1.-rim*.7); // v32 超然亭一带皴线加重
         col = mix(col, col*.62 + INK*.12, hp*.55);
+        // v57 山体顺坡的褶（world.js buildFoldField）：褶沟勾一道淡墨带赭，褶背略提亮，近处清楚、远处收成一片肌理
+        float fd = clamp(vFold/1.1, -1., 1.), fnear = smoothstep(320., 70., length(cameraPosition - vW)) * (1.-vPath);
+        float crease = smoothstep(.16, .72, -fd + (n3-.5)*.35) * smoothstep(.25, .55, vnoise(vW.xz*.11 + 5.));
+        col = mix(col, mix(col*.68 + INK*.08, OCHRE_D*.85, .25*(1.-body*.6)), crease*.62*fnear*(1.-rim*.45));
+        col *= 1. + .07*smoothstep(.25, .85, fd)*fnear*lit;
         // 玉女潭三座团山：披麻皴从山头放射、顺坡而下，长而微曲（原画后山）
         float hpL = 0.;
         for (int i = 0; i < 3; i++) {
@@ -289,6 +294,7 @@ export function rockMaterial(tRock, tCliff, { crest = false, niche = false, jade
           foot = mix(vec3(.4,.34,.25), vec3(.55,.47,.34), lit*.6 + n2*.4);
           // 一块块石头的色调不一：多半是石青，几块青灰，几块灰赭（vM 是每块石头的随机数）
           float bl = clamp(lit*1.1 + nn*.25, 0., 1.);
+          vec3 bQ = blue; // 石青（下面按 vM 换色之前）
           vec3 bG = mix(vec3(.26,.31,.36), vec3(.45,.5,.53), bl), bO = mix(vec3(.34,.34,.3), vec3(.55,.54,.46), bl);
           blue = mix(blue, bG, smoothstep(.6, .68, vM)*.85);
           blue = mix(blue, bO, smoothstep(.86, .92, vM)*.8);
@@ -299,6 +305,12 @@ export function rockMaterial(tRock, tCliff, { crest = false, niche = false, jade
           vec3 bC = mix(mix(vec3(.42,.47,.41), vec3(.66,.69,.58), bl), vec3(.56,.5,.38), smoothstep(.35, .05, vH)*.55 + smoothstep(.1, .7, n.x)*.5);
           blue = mix(blue, bC, smoothstep(.76, .77, vM)*smoothstep(.8, .79, vM)*smoothstep(-284., -290., vW.x));
           blue = mix(blue, mix(vec3(.47,.36,.25), vec3(.75,.62,.45), bl), smoothstep(.815, .825, vM)*smoothstep(.845, .835, vM)*smoothstep(-284., -290., vW.x)); // 四陽洞的暖赭岩脚（vM≈.83）
+          // v57 卷尾峡谷两壁（vM≈.97，main.js wallSdf）：淡石绿灰，向阳面发白、背光偏青，只在壁脚透赭；石面不勾遮蔽线（大壁面上会绕成一圈圈木纹），改成竖的斧劈皴
+          float gw = smoothstep(.955, .965, vM)*smoothstep(.985, .975, vM)*smoothstep(-392., -396., vW.x);
+          vec3 bW = mix(vec3(.37,.44,.43), vec3(.62,.67,.6), clamp(bl*1.15 + .08, 0., 1.));
+          bW = mix(bW, vec3(.33,.42,.47), smoothstep(.45, .1, lit)*.35);
+          blue = mix(blue, bW, gw);
+          blue = mix(blue, bQ, smoothstep(.985, .993, vM)*smoothstep(-392., -396., vW.x)); // 峡壁顶、坎面朝天处罩石青（vM≈.995；和壁色 .97 之间不经过别的色段，边上不出一圈杂色）
         #endif
         #if !defined(JADE) && !defined(CREST)
           // 金晶巖一带（IMG_1271）的石头是灰青色，不是亮石青
@@ -377,6 +389,7 @@ export function rockMaterial(tRock, tCliff, { crest = false, niche = false, jade
           float hk = .35;
           #ifdef PAINT
             hk += .35*smoothstep(.765, .77, vM)*smoothstep(.85, .84, vM)*smoothstep(-286., -292., vW.x); // v47 卷尾的山石皴线重一些（原画水犀洞峰上满是竖皴）
+            hk += .3*gw; // v57 峡壁的斧劈皴
           #endif
           col = mix(col, col*.76, hemp*steep*hk);
         }
@@ -386,11 +399,11 @@ export function rockMaterial(tRock, tCliff, { crest = false, niche = false, jade
           {
             float ov = smoothstep(.04, .55, vO), lo = smoothstep(.45, .12, vH);
             vec3 cc = mix(col*.5 + INK*.12, foot*.62, lo); // 高处的石缝是深石青，低处透赭
-            col = mix(col, cc, ov*.62);
+            col = mix(col, cc, ov*.62*(1. - gw*.75));
             // 缝沿一道断续的淡墨线（沿遮蔽的等值线走，所以是顺着石缝的线，不是点）
             float fw = fwidth(vO) + 1e-4, ln = 1. - smoothstep(fw*.6, fw*1.8, abs(vO - .3));
             ln *= smoothstep(.3, .6, vnoise(vW.xz*1.3 + vW.y*.9)) * (1. - lo*.6);
-            col = mix(col, INK*.9 + col*.2, ln*.45);
+            col = mix(col, INK*.9 + col*.2, ln*.45*(1. - gw));
           }
         #endif
         #ifdef PAINT
