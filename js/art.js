@@ -147,6 +147,15 @@ export function terrainMaterial(tSlope, tRock, lobes = []) {
           earth = mix(earth, earth*.8, streak*.4);
           earth = mix(earth, earth*.84 + INK*.05, smoothstep(.45, .3, apr)*smoothstep(.15, .3, apr)); // 土坪边一圈深一点的轮廓
           col = mix(col, earth, apr*.92);
+          // v61 第 5 条（二到四章路边的草坡太光）：原画（1258 左下、1263）的坡包也是平涂，但上青下赭——包顶石绿，坡面往下、两包之间的凹处化进赭黄。
+          // 按坡陡和小尺度的凹凸（cr）上色；只在第二章超然亭往西（第一章、玉女潭已经认可，不动），近处清楚、远处淡出
+          {
+            float w5 = smoothstep(-112., -122., vW.x)*(1. - vPath)*smoothstep(220., 40., length(cameraPosition - vW));
+            float face = smoothstep(.05, .3, 1. - up + (n2 - .5)*.12)*smoothstep(.3, -.15, cr + (n3 - .5)*.2); // 坡面往下那一截
+            float lf = max(face, smoothstep(-.02, -.4, cr + (n2 - .5)*.25));                                 // 凹处
+            vec3 lfC = mix(vec3(.55,.47,.33), vec3(.71,.62,.45), clamp(lit*.8 + (n3 - .5)*.4, 0., 1.));
+            col = mix(col, lfC, max(lawn, smoothstep(.06, .3, vMd))*(1. - body*.8)*(1. - rim)*lf*.72*w5);
+          }
         }
         // v60 南边新山（world.js SOUTH3/4/5，v58 山脊式）：原来石绿身子、山头一抹石青，颜色单。原画的山是脚下赭、往上转石绿、山头石青：
         // 坡脚（比周围低的凹处 crL < 0）、支脉间的沟里透赭土，背光的坡也带一层赭；平地（潭边、大像前）不上
