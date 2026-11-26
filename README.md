@@ -84,10 +84,10 @@ Every scene has a **painting view** (press <kbd>V</kbd> in the game): a camera f
 <p align="center">
 <img src="docs/media/guanyin-cliff.jpg" width="32.5%" alt="A colossal Guanyin carved into a cliff niche">
 <img src="docs/media/lantern.jpg" width="32.5%" alt="A scholar carrying a lantern beside the pool at night, river lamps on the water">
-<img src="docs/media/scroll-end.jpg" width="32.5%" alt="A terrace above a sea of clouds at dusk, with a painter at the edge and an inscribed cliff">
+<img src="docs/media/scroll-end.jpg" width="32.5%" alt="The narrow gorge at the scroll’s end, a painter at its mouth and the makers’ inscription on the cliff">
 </p>
 
-<sub>**Left:** a 35 m cliff-carved Guanyin in the manner of Longmen, an addition that is not in the painting. **Middle:** playing a scholar at night, lantern in hand, river lamps on the pool. **Right:** where the path ends, a terrace over a sea of clouds, a painter sketching at the edge and the makers' inscription on the cliff.</sub>
+<sub>**Left:** a 35 m cliff-carved Guanyin in the manner of Longmen, an addition that is not in the painting. **Middle:** playing a scholar at night, lantern in hand, river lamps on the pool. **Right:** the only way in: past Siyang Cave the path slips into a narrow winding gorge, with a painter sketching at its mouth and the makers' inscription on the cliff.</sub>
 
 ## How it was made
 
@@ -133,7 +133,7 @@ In the spirit of the London Charter for computer-based visualisation of cultural
 
 | From the painting | Imagined where the painting is silent | Added, and disclosed as additions |
 |---|---|---|
-| The layout, halls, rocks, trees and figures of all thirteen scenes, placed by back-projection and checked against the photographs | The seven seams with no photographic overlap; whatever lies behind hills and inside courtyards the painter did not show (the Daguan Gallery's octagon is a reading of halls half hidden by trees) | A 35 m cliff-carved Guanyin in the manner of Longmen; a waterfall pool with a boat opposite the Dragon Pool; the cloud terrace at the scroll's end, with a painter and the makers' inscription; the inscription wall; night, lanterns and river lamps |
+| The layout, halls, rocks, trees and figures of all thirteen scenes, placed by back-projection and checked against the photographs | The seven seams with no photographic overlap; whatever lies behind hills and inside courtyards the painter did not show (the Daguan Gallery's octagon is a reading of halls half hidden by trees) | A 35 m cliff-carved Guanyin in the manner of Longmen; a waterfall pool with a boat opposite the Dragon Pool; the narrow gorge at the scroll's end (the one way into the painting), with a painter and the makers' inscription; the inscription wall; night, lanterns and river lamps |
 
 ## Controls
 
@@ -259,7 +259,7 @@ A short paper on this work, *A Landscape to Wander and Dwell In: Rebuilding the 
 
 - **来自原画**：十三景的布局、殿阁、山石、树木和人物，按反投影摆放并对照原画核对。
 - **原画没画、按笔意想象的**：七处无重叠的接缝；山后、院内等原画看不到的部分（大觀廊的八合院是对被树遮住的一圈殿宇的解读）。
-- **另外添加、明确标出的**：仿龙门的 35 米摩崖观音；龍湫对面的瀑布深潭和小船；卷尾的望云台、写生画师和作者题刻；题名壁；夜景、灯笼和河灯。
+- **另外添加、明确标出的**：仿龙门的 35 米摩崖观音；龍湫对面的瀑布深潭和小船；卷尾通进画里的唯一一道窄峡、峡口写生的画师和作者题刻；题名壁；夜景、灯笼和河灯。
 
 ### 操作
 

@@ -6,7 +6,7 @@ import { PATH, PATH_V29, ZONES, STAGES, PEOPLE, ACTIONS } from './data.js';
 import { MOYA, CAVE, caveLocal, inCave, buildTerrainGeometry, buildTerrainPatch, terrainHeight, surfaceTop, groundHeight, waterLevel, pathAt, slopeAt, blocked, smooth, rand, fbm,
   POND, POOL, STREAM, STREAM2, PADS, COLLIDERS, addSurface, WORLD, distToStream, pondShape, LOBED, FORE, foreMound, MASSIF, QN_STAIRS, massifAt, distToLine, LAYOUT_V21, DGL, daguanWallTop, CH2, PIAO, PANYU, CHAORAN, STAIRS2, MASSIF2, rocks2At, withOldPath, useOldPath, enterV33, exitV33, S56, pathOn, pathV33At, gorge6,
   CH3, ZEN3, ZEN3B, GY3, POLE3, MOYA3, POOL3, GROTTO3, LONGQIU3, PADS_NOW, POOLW, CHUPING, back8,
-  CH4, XI4, PEAK4, SIYANG4, QD4, STREAM4 } from './world.js';
+  CH4, XI4, PEAK4, SIYANG4, QD4, STREAM4, gorgeAt4, FOLD } from './world.js';
 import { PAL, loadTex, terrainMaterial, rockMaterial, cliffMaterial, foliageMaterial, flatMaterial,
   cloudMaterial, leafClumpTexture, tuftTexture, pineTexture, bambooTexture, cloudTexture, createPost } from './art.js';
 import { Kit, COL, buildYuguangGe, YUGUANG, buildHexPavilion, buildHall, buildArchBridge, buildCorridor,
@@ -793,17 +793,44 @@ let peakTop4 = () => null;
     blk(x, z, w, w * 0.8, t - 1, t, { tone: x < -378 ? WO : 0.9, ry: x, seed: sd, keepY: true, col: 0 });
   // 青島磯：溪右一块平坡，坡边几块石青石
   for (const [x, z, w, t] of [[-374.2, -10.4, 1.6, 1.3], [-373, -8.4, 1.1, 0.8], [-378.8, -5.2, 1.0, 0.6]]) blk(x, z, w * 1.1, w, H(x, z) - 0.5, H(x, z) + t, { tone: x > -378 ? BL : 0.5, ry: x });
-  // v49 卷尾峡谷撤掉（两壁的嶙峋石一并去掉）。望云台崖头几块青灰嶙峋石，台外云海里几座远峰（淡青，一座比一座远）
-  for (const [x, z, w, d, top, sd] of [[-411.6, -4.8, 2.6, 2.2, 9.4, 4651], [-412.4, -2.2, 1.8, 1.6, 7.6, 4652], [-411.8, 12.6, 2.4, 2.0, 8.2, 4653], [-413.2, 10.4, 1.6, 1.4, 6.9, 4654]])
-    blk(x, z, w, d, -2, top, { tone: CEL, ry: x * 0.3 + z, seed: sd, keepY: true, col: 0 });
+  // v57 卷尾恢复峡谷（Yang：还是峡谷更有意境，通向画境的入口只有这一条小路）：两壁用距离场整块雕。
+  // 壁面顺山势一道道竖皴、几层横坎，近顶往里探（抬头只见一线天），壁顶参差；壁脚略收。地形（world.js gorge4）只起大样，石面盖住地形网格的陡坡
+  {
+    const cache = new Map(), col = (x, z) => { const key = x * 4096 + z; let c = cache.get(key); if (!c) { c = gorgeAt4(x, z); cache.set(key, c); } return c; };
+    const fh = (i, j, s) => { let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263) + Math.imul(s, 1442695041)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+    const wallSdf = (x, y, z) => {
+      const c = col(x, z), a = c.a, sd = c.side > 0 ? 0 : 1, w = c.w, Hs = c.H;
+      const t = (y - c.fl) / Math.max(1, Hs);
+      const lean = -0.9 * smooth(0.55, 0.95, t) + 0.2 * smooth(0.12, 0, t); // 近顶往里探，壁脚略收
+      // 斧劈：壁面竖着分成一根根石柱（宽 1.6–2.6 米），各自进出不一；再横着几层石坎（折带），一层层错开
+      const u = c.s * 0.48 + 0.25 * Math.sin(y * 0.23 + sd * 2), ci = Math.floor(u), fu = u - ci;
+      const ins = (i) => 0.75 * fh(i, sd, 61) - 0.2;
+      let col1 = ins(ci) + (ins(ci + 1) - ins(ci)) * smooth(0.78, 1, fu);
+      const v = (y - c.fl) / 2.6 + 0.6 * fh(ci, sd, 62), bi = Math.floor(v), fv = v - bi;
+      col1 += 0.32 * (fh(ci, bi * 3 + sd, 63) - 0.5) * smooth(0.25, 0.5, t + 0.25) + 0.18 * smooth(0.82, 1, fv); // 坎沿下一道凹
+      let d = w + 0.1 + lean + col1 * smooth(0.04, 0.2, t) - a;                     // 离中线比壁面远就在石里（负）
+      d = Math.max(d, a - (w + 5));                                                 // 石厚 5 米，外面埋进地形
+      const top = c.fl + Hs + 1.8 + 1.8 * (vn3(x * 0.22, 0, z * 0.22, 57) - 0.5) - 3 * smooth(w + 2.2, w + 5, a); // 壁沿高出地形一截，往外低下去埋进地形（交线不起锯齿）
+      d = Math.max(d, y - top, c.fl - 1.2 - y, x + 397.5, -429.5 - x);
+      if (Math.abs(d) > 1.3) return d; // 离石面远的格点不必算皴（载入时现场算）
+      const ft = smooth(0, 0.18, t); // 壁脚几乎不起皴（凹进去会露出后面的地形）
+      return d + (0.45 * (vn3(x * 0.8, y * 0.12, z * 0.8, 51) - 0.5) + 0.25 * (vn3(x * 1.6, y * 0.35, z * 1.6, 52) - 0.5)) * (0.35 + 0.65 * ft) + 0.1 * (vn3(x * 3, y * 1.1, z * 3, 53) - 0.5);
+    };
+    const A = sdfArrays(wallSdf, [-430, -396.5, 4.5, 34, -21, 19], MOBILE ? 0.55 : 0.4, { hy: [6, 26], tone: 0.97, occ: 0.5 }); // tone .97：峡壁专用的色（art.js gw）
+    for (let i = 0; i < A.aM.length; i++) { const y = A.position[i * 3 + 1], c = gorgeAt4(A.position[i * 3], A.position[i * 3 + 2]); if (A.normal[i * 3 + 1] > 0.5 && y > c.fl + 0.55 * c.H) A.aM[i] = 0.995; A.aH[i] = Math.min(1, Math.max(0, (y - c.fl + 4) / (c.H + 6))); } // 壁顶、坎面朝天的地方罩石青（原画青绿山石）；高低按本处峡底算，只有壁脚一两米透赭（按世界高度算，壁下半截全成了赭褐，像木纹）
+    const g = new THREE.BufferGeometry(); for (const [k, n] of [['position', 3], ['normal', 3], ['aH', 1], ['aM', 1], ['aO', 1]]) g.setAttribute(k, new THREE.BufferAttribute(A[k], n));
+    PAN7.push(g);
+    for (let x = -398; x >= -420.6; x -= 0.8) { const P = pathAt(x); for (const sd of [1, -1]) circleCol(x, P.z - sd * (gorgeAt4(x, P.z - sd).w + 0.45), 0.45); } // 壁脚：人走不进石里
+  }
+  // 峡口两边几块落石；北壁峡口那面磨平刻作者题记（credit.js END.moya）
+  for (const [x, z, w, d, top, sd] of [[-397.6, -3.6, 2.4, 2.0, 8.8, 4651], [-396.4, 12.4, 2.6, 2.2, 8.4, 4652], [-398.6, 11.2, 1.4, 1.2, 7.0, 4653], [-409.2, 7.2, 1.0, 0.9, 6.9, 4654]])
+    blk(x, z, w, d, 4.5, top, { tone: 0.88, ry: x * 0.3 + z, seed: sd, keepY: true, col: 0 });
   // 题名壁：一道低石屏，背后、两头靠着几块暖灰的嶙峋石（tone .72，同磐玉隈大石板的浅灰）（不是一块孤零零的方石）。v50 随题名壁挪到玉女潭玉光閣西边（见 credit.js END.wall）
   { const S = END.wall, fx = Math.sin(S.ry), fz = Math.cos(S.ry), ax = Math.cos(S.ry), az = -Math.sin(S.ry), y0 = H(S.x, S.z);
     blk(S.x - fx * 1.6, S.z - fz * 1.6, S.w + 1.2, 2.8, y0 - 1, y0 + 4.6, { tone: 0.72, ry: S.ry, seed: 4669, col: 0, keepY: true });
     for (const [k, sd, w, h] of [[-1, 4670, 2.4, 3.0], [1, 4673, 2.0, 1.7]]) { const x = S.x + ax * k * (S.w / 2 + 0.9) - fx * 0.5, z = S.z + az * k * (S.w / 2 + 0.9) - fz * 0.5;
       blk(x, z, w, w * 0.9, H(x, z) - 1, H(x, z) + h, { tone: 0.72, ry: S.ry + k, seed: sd, col: w * 0.4, keepY: true }); } }
-  // 题刻立崖：题刻石板背后靠一整块青灰的崖（石板像是崖面上磨平刻字的一块）
-  blk(-406.1, -3.0, 7.4, 3.6, 5, 13.8, { tone: CEL, ry: 0.75, seed: 4667, col: 2.2, keepY: true });
-  blk(-408.6, -1.0, 3.2, 2.6, 5, 10.2, { tone: CEL, ry: 0.4, seed: 4668, col: 1.2, keepY: true });
+  // v57 题刻刻在峡口北壁上（壁由上面的距离场雕出，v49 望云台那面青灰立崖撤掉）
   // 远峰：几座主峰带侧峰，圆中带尖，峰脚埋进云里（一张小高度场，只留露出云的部分）。颜色在 art.js 里按 x < −480 染成淡石青、往下化进绢色
   const farPeaks = (x0, x1, z0, z1, cell, lobes, seed) => {
     const nx = Math.round((x1 - x0) / cell), nz = Math.round((z1 - z0) / cell), Y0 = -30, hf = (x, z) => {
@@ -908,6 +935,7 @@ await step('布散石');
 
 // ---------- 树（实例化）----------
 await step('种林木');
+FOLD.off = true; // v57 撒树时不算山体褶皱（随机序列不变），种下去时再落到褶上
 LAYOUT_V21.on = true; // 布局按 v21 的地形算（见 world.js），种下去时再落到新地形上
 useOldPath(true); // 见 world.js useOldPath
 const TREES = { broad: [], pine: [], bamboo: [], old: [], tallpine: [], cypress: [], shrub: [], dwarfpine: [], fir: [] }; // fir：v39 第三章的杉
@@ -1288,6 +1316,9 @@ exitV33();
   grove('pine', MOBILE ? 5 : 8, -316, 50, 6, 0.55, 0.8, 0.8, 3); grove('pine', MOBILE ? 5 : 8, -350, 52, 6, 0.55, 0.8, 0.8, 3); grove('broad', MOBILE ? 2 : 4, -381, 56, 5, 0.8, 1.0, 0.74, 3.4);
   grove('pine', MOBILE ? 4 : 7, -333, 72, 7, 0.5, 0.7, 0.84, 3.2); grove('dwarfpine', MOBILE ? 3 : 4, -304, 36, 4, 0.7, 0.9, 0.68, 2.8);
   add('pine', -410.4, -3.4, 1.25, 0.78); add('dwarfpine', -409.6, 12.2, 0.8, 0.68); add('shrub', -408.4, 13.2, 0.6, 0.66);
+  // v57 峡谷两壁顶上几株松、矮松探向峡里，壁沿几丛杂树（原画峡壁上的松都是斜着长出来的）
+  for (const [t, x, z, sc, tint] of [['pine', -404.6, -2.2, 0.95, 0.76], ['dwarfpine', -413.4, -0.4, 0.9, 0.7], ['pine', -417.6, -2.8, 1.05, 0.76], ['old', -414.6, 10.4, 1.0, 0.8],
+    ['dwarfpine', -419.4, 8.6, 0.85, 0.7], ['pine', -425.6, -2.4, 1.0, 0.78], ['shrub', -406.4, 11.0, 0.7, 0.66], ['shrub', -411.2, -0.9, 0.6, 0.66], ['pine', -427.4, -19.6, 0.95, 0.8]]) add(t, x, z, sc, tint);
 }
 // v56 超然亭对面合拢的山（world.js SOUTH5）：山头上一丛丛松、杂树，坡上一团团墨绿的点叶，丛与丛之间留白（同 v50 南山）。追加在列表末尾，别处的树一棵不动
 {
@@ -1344,6 +1375,7 @@ function cullTrees(force) {
     if (T.tm) { T.tm.count = n; T.tm.instanceMatrix.needsUpdate = true; }
   }
 }
+FOLD.off = false;
 plantTrees('broad', [11, 12, 13], [tex.clump[0], tex.clump[1], tex.clump[3]]);
 plantTrees('pine', [21, 22, 23], [tex.pine]);
 plantTrees('bamboo', [31, 32], [tex.bamboo]);
@@ -1368,7 +1400,7 @@ plantTrees('fir', [91, 92, 93], [tex.pine]);
   const N = MOBILE ? 3800 : 7000;
   const lm = new THREE.InstancedMesh(geo, fm, N); lm.frustumCulled = false; lm.layers.set(1);
   const r = rand(123), items = [];
-  S56.off = true; // v56 超然亭对面新起的山不算（草按原来的地形撒，别处的草一簇不动），撒完再落到新地形上
+  S56.off = true; FOLD.off = true; // v56 超然亭对面新起的山不算（草按原来的地形撒，别处的草一簇不动），撒完再落到新地形上；v57 山体褶皱同样
   for (let i = 0; i < N * 2 && items.length < N; i++) {
     const cat = i % 9, inSlice = cat < 5, ch1 = cat === 5 || cat === 6; // 玉女潭密，第一章草坡次之，其余沿游线稀疏
     const x = inSlice ? -12 + r() * 104 : ch1 ? 94 + r() * 250 : OLDX0 + r() * (WORLD.x1 - OLDX0);
@@ -1380,7 +1412,7 @@ plantTrees('fir', [91, 92, 93], [tex.pine]);
     const m = new THREE.Matrix4().compose(new THREE.Vector3(x, terrainHeight(x, z) - 0.05, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r() * 3, 0)), new THREE.Vector3(s, s * (0.7 + r() * 0.6), s));
     const k = 0.85 + r() * 0.3; items.push({ x, z, m, c: new THREE.Color(k, k, k * 0.95) });
   }
-  S56.off = false; for (const it of items) if (it.x > -218 && it.x < -120 && it.z > 13) it.m.elements[13] = terrainHeight(it.x, it.z) - 0.05;
+  S56.off = false; FOLD.off = false; for (const it of items) it.m.elements[13] = terrainHeight(it.x, it.z) - 0.05;
   lm.setColorAt(0, new THREE.Color(1, 1, 1));
   treeSets.push({ tm: null, lm, items, r: MOBILE ? 50 : 85 }); scene.add(lm);
 }
@@ -1437,8 +1469,9 @@ const CLOUD_L = [];
     [-166, 121, -68, 46], [-191, 119, -80, 42], [-150, 124, -62, 32]]) L.push([x, y, z, w]);
   // v47 水犀洞到四陽洞之间：青山后面赭坡腰上一带云（云在山上，不压游线）
   for (const [x, z, w, dy] of [[-346, -44, 26, 4], [-332, -50, 24, 5], [-360, -48, 24, 5]]) L.push([x, terrainHeight(x, z) + dy, z, w]);
-  // v49 卷尾：望云台外（西、西南）一片云海，崖下的云顶比台面低四五米；游线南边云谷里一层低云；后山赭坡腰上再添几道云带（原画 1260 左上云带横穿松林，1258 左上一片空濛）
-  for (const [x, y, z, w] of [[-421, 2.5, 4, 22], [-420, 2.5, -8, 20], [-422, 2, 16, 22], [-438, 1.5, -10, 32], [-442, 1.5, 22, 36], [-462, 0.5, 4, 44], [-430, 1, 40, 34], [-490, 2, 34, 52], [-496, 3, -16, 52], [-418, 1, 28, 24], [-460, 4, -32, 40], [-530, 6, 8, 60], [-560, 10, -10, 70]]) L.push([x, y, z, w]);
+  // v49 卷尾：游线南边云谷里一层低云；后山赭坡腰上再添几道云带（原画 1260 左上云带横穿松林，1258 左上一片空濛）
+  // v57 望云台改回峡谷：台外云海那几团就地挪（序号、种子不变）——峡里拐弯处一缕云锁住去路，两壁顶上、地图尽头的山腰几团，南坡落进云谷那片照旧
+  for (const [x, y, z, w] of [[-421.3, 10, -5.5, 8], [-426, 27, -14, 16], [-418, 23, 15, 14], [-438, 36, -12, 30], [-424, 6, 32, 26], [-452, 42, 8, 40], [-430, 1, 40, 34], [-490, 2, 34, 52], [-496, 3, -16, 52], [-418, 1, 28, 24], [-460, 4, -32, 40], [-530, 6, 8, 60], [-560, 10, -10, 70]]) L.push([x, y, z, w]);
   for (const [x, z, w] of [[-350, 30, 24], [-372, 31, 26], [-396, 29, 22], [-336, 31, 18]]) L.push([x, terrainHeight(x, z) + 3.5, z, w]); // v50 云谷收窄到游线和南山之间
   for (const [x, z, w, dy] of [[-330, 58, 26, 3], [-372, 64, 26, 3], [-306, 56, 22, 4]]) L.push([x, terrainHeight(x, z) + dy, z, w]);          // 南山山腰几团云
   for (const [x, z, w, dy] of [[-316, -60, 28, 5], [-302, -66, 26, 6], [-330, -64, 26, 6], [-404, -56, 30, 6], [-418, -46, 28, 5], [-392, -64, 30, 7]]) L.push([x, terrainHeight(x, z) + dy, z, w]);
@@ -1499,7 +1532,7 @@ const boat2 = new THREE.Group();
 const cranes = [new Crane(108, -2, { seed: 1 }), new Crane(113, 1, { seed: 2 })];
 cranes.forEach((c) => scene.add(c.root));
 const birds = new Birds(scene, terrainHeight, { mobile: MOBILE, bounds: WORLD, grid: { y: (i, j) => TGP[(j * TNX + i) * 3 + 1], nx: TNX, nz: TNZ, x0: WORLD.x0, z0: WORLD.z0, step: WORLD.step } });
-// v43 卷尾（v49 起是望云台）：作者题刻、游人题名壁、写生的画师（见 credit.js）
+// v43 卷尾（v49 望云台，v57 改回峡口）：作者题刻、游人题名壁、写生的画师（见 credit.js）
 const credit = buildCreditSite({ scene, groundHeight, rockMat: rockMaterial(tex.rock, tex.cliff, { grey: true }), flat, Kit, COL, Figure, figs, boxCol, addLamp: (p, k) => DN.addLamp(p, k) });
 
 // ---------- 状态 ----------
@@ -1972,7 +2005,7 @@ const fwd = new THREE.Vector3(), right = new THREE.Vector3();
 function moveFigure(f, dx, dz) {
   const p = f.root.position, step = Math.hypot(dx, dz); if (step < 1e-5) return false;
   const ok = (x, z) => {
-    if (x > 345 || x < -411.2 || z < -170 || z > 70) return false; // v47 卷尾往左加长；v49 望云台崖沿
+    if (x > 345 || x < -420.3 || z < -170 || z > 70) return false; // v47 卷尾往左加长；v57 峡里走到第一道拐弯（峡再往北、往西拐出画外）
     if (blocked(x, z, 0.28 * f.root.scale.x)) return false;
     const gh = groundHeight(x, z), w = waterLevel(x, z);
     if (w > gh - 0.05 && w > terrainHeight(x, z) + 0.25) return false; // 水深，过不去
@@ -2051,7 +2084,7 @@ function frame() {
     mx += joy.x; mz -= joy.y;
     if (mx || mz || my) { if (!ui.ovBar.hidden) hideOverlay(); }
     c.pos.addScaledVector(fwd, mz * sp).addScaledVector(right, mx * sp); c.pos.y += my * sp * 0.7;
-    c.pos.x = THREE.MathUtils.clamp(c.pos.x, -430, 345); // v49 自由镜头可以飞出望云台，回看崖头
+    c.pos.x = THREE.MathUtils.clamp(c.pos.x, -430, 345); // v49 自由镜头可以飞到卷尾地图边
     c.pos.z = THREE.MathUtils.clamp(c.pos.z, -160, 80); // v51 这句原来接在上面注释后头，被一起注释掉了
     c.pos.y = THREE.MathUtils.clamp(c.pos.y, groundHeight(c.pos.x, c.pos.z) + 1.2, 140);
     if (camera.fov !== 50 && !state.view) { camera.fov += (50 - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix(); }

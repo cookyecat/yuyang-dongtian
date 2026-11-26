@@ -1,5 +1,5 @@
 // v43 署名与题名壁：作者的跋（常驻朱印点开）、卷尾峡谷尽头的摩崖题刻、峡谷北壁的「题名壁」（游人到此一游）、峡口写生的画师。
-// v49 卷尾峡谷撤掉：游线尽头是一片临崖的望云台，台外云海。作者的题刻刻在台北一面立崖上迎着来路，画师坐在崖沿对着云海写生。
+// v57 卷尾改回峡谷（v49 曾是临崖的望云台）：四陽洞外，路钻进一道窄峡拐出画外，是外面的人进到画里来的唯一一条小路。作者的题刻刻在峡口北壁上迎着来路，画师坐在峡口写生。
 // v50 游人的题名壁挪到玉女潭（开场就在这里，人人路过）：玉光閣西边游线南侧一道低石屏。题名的数据存在 Cloudflare Worker（见 guestbook/），地址写在 index.html 的 <meta name="yy-guestbook">。
 import * as THREE from 'three';
 import { t, isEn, onLang } from './i18n.js';
@@ -10,15 +10,15 @@ export const AUTHOR = {
   x: 'https://x.com/myannli', xName: '@myannli',
   date: '丙午初冬',
 };
-// 卷尾望云台：题刻、题名壁、画师的位置
+// 卷尾峡口：题刻、题名壁、画师的位置
 export const END = {
-  // v49 卷尾峡谷撤掉，改成游线尽头的望云台：题刻是台北一面立崖，迎着来路；题名壁是台南一道低石屏；画师坐在崖沿对着云海写生
-  moya: { x: -404.6, z: -1.6, w: 5.6, h: 6.4, ry: 0.75 },
+  // v57 卷尾改回峡谷（Yang：通向画境的入口只有这一条小路）：题刻刻在峡口北壁上，迎着从四陽洞走来的人；画师坐在峡口南边，对着四陽洞写生
+  moya: { x: -400.9, z: -0.45, w: 5.2, h: 6.2, ry: 0.585 },
   // v50 题名壁挪到玉女潭（Yang：放在卷尾，进来的人看不见）：玉光閣西边游线南侧一道石屏，朝着游线和东来的人；开场画境镜头里看不到
   wall: { x: -4.5, z: 12, w: 8.6, h: 3.9, ry: 2.78 },
   wallView: { pos: [3.5, 9.2, 2.5], at: [-4.5, 7.6, 12], fov: 50 },
-  painter: { x: -408.6, z: 5.2, face: -Math.PI / 2 + 0.15 },
-  view: { pos: [-386, 11.5, 10], at: [-406, 6.5, 3], fov: 50 },
+  painter: { x: -399.2, z: 8.2, face: 2.4 },
+  view: { pos: [-386, 11.5, 10], at: [-406, 8.5, 3], fov: 50 },
 };
 const BRUSH = '"Ma Shan Zheng","STKaiti","KaiTi","Kaiti SC",serif';
 const SIG = '"YY Sig","Kaiti TC","BiauKai","KaiTi",serif'; // 落款、印章（繁体「李揚」，马善政体没有这个字）
@@ -191,7 +191,7 @@ function sealOn(g, x, y, s, text, { white = true } = {}) { // 方印：白文（
   g.globalAlpha = 0.88; g.drawImage(c, x, y); g.globalAlpha = 1;
 }
 
-function inscriptionTexture() { // 望云台立崖上的摩崖：作者题记
+function inscriptionTexture() { // 峡口北壁上的摩崖：作者题记
   const W = 1024, H = 1170, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d');
   // 题刻范围略微磨平：一块浅一点的方框
@@ -304,12 +304,12 @@ export function buildCreditSite({ scene, groundHeight, rockMat, flat, Kit, COL, 
   if (document.fonts) Promise.all([document.fonts.load('60px "YY Sig"', '李揚與製'), document.fonts.load('60px "Ma Shan Zheng"', '玉阳洞天题名壁')])
     .then(() => { swap(moya.plane, inscriptionTexture()); swap(wall.plane, wallTexture(wallItems)); }).catch(() => {});
 
-  // 画师：望云台崖沿铺纸写生（v49，原来在峡口），面前一张矮几（纸、笔、砚），身后一只书箱
+  // 画师：峡口铺纸写生，对着四陽洞（v57 回到峡口；v49 曾坐在望云台崖沿），面前一张矮几（纸、笔、砚），身后一只书箱
   const P = END.painter;
   const def = {
     id: 'huashi', name: '画师', pos: [P.x, 0, P.z], face: P.face, robe: '#efe9da', trim: '#3f6f8c', hat: 'scarf', seat: 'cushion', routine: 'sit', control: false,
-    card: { eye: '卷尾 · 望云台', title: '崖头的画师',
-      body: ['路的尽头是一片临崖的平台，台外云海茫茫。一位画师坐在崖沿铺纸写生，画的正是这一卷。原画里没有他：他是这座游园的作者留在画里的影子。',
+    card: { eye: '卷尾 · 峡口', title: '峡口的画师',
+      body: ['四陽洞外，路钻进一道窄峡，两壁夹天，曲曲折折通到画外：外面的人要进这幅画，只有这一条小路。峡口一位画师铺纸写生，画的正是这一卷。原画里没有他：他是这座游园的作者留在画里的影子。',
         `<span class="cr">${AUTHOR.en} 与 ${AUTHOR.partner} 同制 · <a href="${AUTHOR.github}" target="_blank" rel="noopener">GitHub</a> · <a href="${AUTHOR.x}" target="_blank" rel="noopener">X ${AUTHOR.xName}</a></span>`],
       tip: '接管一位游人走到他身边，可以和他聊几句；题名壁在玉女潭玉光閣西边的路旁。', extra: [['看跋', 'ba'], ['题名', 'wall']] },
     lines: ['有客到了！这一卷从金晶巖一路走到四陽洞，你都看过了吗？',
@@ -318,8 +318,8 @@ export function buildCreditSite({ scene, groundHeight, rockMat, flat, Kit, COL, 
       '玉女潭玉光閣西边路旁有一道石屏，是题名壁。留个名字吧，也算到此一游。'],
     after: 'ba',
     en: { name: 'Painter', // v52 英文界面
-      card: { eye: 'Scroll’s End · Cloud-Viewing Terrace', title: 'The Painter on the Cliff',
-        body: ['The path ends at a terrace on the cliff edge, with a boundless sea of clouds beyond. A painter sits at the brink with paper spread before him, sketching, and what he paints is this very scroll. He is not in the original: he is the shadow that the makers of this garden walk have left inside the painting.',
+      card: { eye: 'Scroll’s End · Gorge Mouth', title: 'The Painter at the Gorge Mouth',
+        body: ['Beyond Siyang Cave the path slips into a narrow gorge, its walls closing overhead, and winds out of the painting: the only way in from the world outside. At its mouth a painter sits with paper spread before him, sketching, and what he paints is this very scroll. He is not in the original: he is the shadow that the makers of this garden walk have left inside the painting.',
           `<span class="cr">Made by Yang Li with ${AUTHOR.partner} · <a href="${AUTHOR.github}" target="_blank" rel="noopener">GitHub</a> · <a href="${AUTHOR.x}" target="_blank" rel="noopener">X ${AUTHOR.xName}</a></span>`],
         tip: 'Walk a figure over to him for a few words. The inscription wall stands beside the path west of the Jade Light Tower, at the Jade Maiden Pool.', extra: [['Colophon', 'ba'], ['Sign the wall', 'wall']] },
       lines: ['A visitor! Have you seen the whole scroll, all the way from Golden Crystal Cliff to Siyang Cave?',

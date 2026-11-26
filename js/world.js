@@ -382,6 +382,31 @@ function south5(x, z, h) {
   // 只在原来那两道薄山脊（x ≈ −200、−135）和沟里往下削；两头接第三章、琪樹峡的地方只往上垫，不把人家的坡削低
   return h + (T - h) * (T < h ? k * smooth(-211, -205, x) * smooth(-121, -127, x) : k);
 }
+// v57 第三章龍湫·禪窩南边（Yang：同超然亭对面一样，平地一直平到地图边）：瀑布潭、摩崖大像背后起三道圆山合抱，近低远高，
+// 西头接 v50 水犀洞南山，东头接 v56 超然亭对面的山。只往上垫：瀑布潭和后面那座石壁山、摩崖大像龛前一点不动。
+// [x, z, 半径（东西向）, 比原地面高, 南北向扁几倍]
+const SOUTH3 = [
+  [-290, 45, 8, 7, 1.1], [-283, 57, 10, 10, 1.2], [-245, 59, 10, 9, 1.2], [-229, 58, 11, 13, 1.1], [-213, 49, 7, 6, 1.0],      // 近处几座矮山：潭后石壁山两旁、摩崖大像背后
+  [-293, 71, 13, 17, 1.2], [-272, 71, 15, 21, 1.3], [-251, 73, 14, 16, 1.2], [-232, 72, 13, 19, 1.2], [-214, 68, 10, 12, 1.1],  // 中间一道
+  [-299, 88, 16, 28, 1.2], [-278, 90, 20, 32, 1.3], [-255, 88, 17, 26, 1.2], [-234, 90, 18, 30, 1.2], [-214, 86, 14, 22, 1.1]]; // 地图边上更高的一道
+export const south3Mask = (x, z) => smooth(50, 62, z) * smooth(-300, -292, x) * smooth(-204, -212, x); // 山体上色（不铺草坡色）的范围
+function south3(x, z, h) {
+  const k = smooth(-302, -294, x) * smooth(-202, -210, x) * smooth(34, 42, z)
+    * Math.max(smooth(13, 19, Math.hypot(x + 264, (z - 42) * 1.15)), smooth(56, 62, z))                 // 瀑布潭、石壁山不动
+    * Math.max(smooth(-238, -242, x) + smooth(-210, -206, x), smooth(46, 52, z));                       // 摩崖大像龛前不动
+  if (k <= 0) return h;
+  let acc = 0, n = 0;
+  for (const [cx, cz, R, Hh, sq] of SOUTH3) {
+    const dx = x - cx, dz = (z - cz) * sq, th = Math.atan2(dz, dx);
+    const d = Math.hypot(dx, dz) / R * (1 + 0.2 * (fbm(x * 0.05 + cz, z * 0.05 + cx * 0.01) - 0.5) + 0.1 * Math.sin(3 * th + cx));
+    if (d >= 1) continue;
+    const rib = Math.pow(1 - Math.abs(Math.sin(th * 6 + fbm(x * 0.05, z * 0.05) * 3)), 3) * Hh * 0.07 * smooth(0.25, 0.5, d) * smooth(1, 0.7, d);
+    acc += Math.exp(0.3 * (Hh * dome4(d) + rib)); n++;
+  }
+  if (!n) return h;
+  const u = Math.log(acc - n + 1) / 0.3;
+  return h + u * (1 + 0.14 * (fbm(x * 0.11 + z * 0.04, z * 0.11) - 0.5)) * k;
+}
 // v47 水犀洞左边那座尖顶青山（原画 1260 左半，山尖在 u .2、v .25）和它右后一座矮些的石青色小山
 function cone4(x, z) {
   let s = 0;
@@ -441,15 +466,58 @@ export function ch4Ground(x, z, h0) {
     if (n) { const u = Math.log(acc - n + 1) / 0.3; g += u * (1 + 0.14 * (fbm(x * 0.11 + z * 0.04, z * 0.11) - 0.5)) - 0.9 * u / 20 * Math.abs(Math.sin(x * 0.21 + 2.2 * fbm(x * 0.05, z * 0.08))) ; }
     g += 22 * smooth(64, 86, z) * smooth(-292, -312, x); // 东头（第三章那边）缓缓落下，不起一道直墙
   }
-  // 望云台：游线尽头一片平地；台外（西、西南）一落千丈，崖下是云海
-  { const r = Math.hypot((x + 403.5) / 8.5, (z - 4.5) / 7.5); if (r < 1.25) g += (p.y + 0.25 * (fbm(x * 0.2, z * 0.2) - 0.5) - g) * smooth(1.25, 0.85, r); }
-  { const open = smooth(-18, -9, z), drop = smooth(-411.6, -417, x) * open; if (drop > 0) g += (Math.min(g, p.y - 16 - 6 * smooth(-416, -428, x)) - g) * drop; }
-  g += (14 + 30 * fbm(z * 0.04 + 3, x * 0.03 + 7)) * smooth(-412, -428, x) * smooth(-9, -18, z); // 地图尽头的山只留在北边（v49 西、西南敞开成云海）
+  // v57 卷尾恢复峡谷（Yang：v49 望云台敞开了，还是峡谷更有意境——通向画境的入口只有这一条小路，外面的人顺路进来，山穷水尽疑无路）。
+  // 四陽洞前照旧敞亮（北边圆包、溪口、石桥不动），过了峡口（x −396）两壁一下子夹拢，路在窄峡里左一拐右一拐通到画外；两壁犬牙交错，从峡口望不到头。
+  // 峡口留一小片平地：北壁迎着来路刻作者题记，南边画师铺纸写生。峡壁的嶙峋石面另用距离场雕（main.js gorgeSdf4），这里只起地形的大样
+  let slot = 1;
+  if (x < -394) {
+    const G = gorge4(x, z), fl = G.fl;
+    slot = G.slot;
+    { const r = Math.hypot((x + 399.5) / 5.5, (z - 5.2) / 5); if (r < 1.3) g += (fl + 0.2 * (fbm(x * 0.2, z * 0.2) - 0.5) - g) * smooth(1.3, 0.9, r); } // 峡口一小片平地
+    g = g + (fl - g) * (1 - G.slot) * smooth(-394, -398, x); // 峡底就是路
+    g = Math.max(g, G.wall);
+  }
+  g += (14 + 30 * fbm(z * 0.04 + 3, x * 0.03 + 7)) * smooth(-412, -428, x) * slot; // 地图尽头的山（峡里让开）
   // 溪：出洞往南，河床比水面低半米，两岸缓坡
   { const s = distToStream4(x, z); if (s.d < 3.2) { const bed = s.wl - 0.45; g = Math.min(g, bed + (g - bed) * smooth(0.7, 3.2, s.d)); } }
   // 远处照旧（地图尽头的高山）
   g += (Math.max(g, h0) - g) * smooth(-64, -100, z);
   return g;
+}
+// v57 卷尾峡谷的中线（峡底）：[x, z, 峡底高]。出了峡口往西，左右一摆；第一道拐弯往北（人走到这里为止），再往西拐出画外。
+// 两壁照中线量真距离（不是按 x 一列列量），拐弯处壁也是一样厚；从峡口、拐弯处都望不到出口。
+const GL4 = [[-394, 4.1, 5.95], [-404, 4.0, 6.0], [-408, 4.3, 6.05], [-411.5, 5.3, 6.3], [-415, 4.6, 6.6], [-418, 3.0, 6.9], [-420.2, 0.4, 7.2],
+  [-421.2, -3.5, 7.6], [-421.4, -7.5, 8.0], [-422.4, -11, 8.4], [-425, -13.2, 8.8], [-429, -14.2, 9.2], [-436, -14.6, 9.8]];
+const GS4 = (() => { // 中线每 0.25 米一个点：x, z, 峡底高, 弧长, 切向
+  const P = []; let s = 0;
+  for (let i = 0; i < GL4.length - 1; i++) {
+    const A = GL4[Math.max(0, i - 1)], B = GL4[i], C = GL4[i + 1], D = GL4[Math.min(GL4.length - 1, i + 2)], L = Math.hypot(C[0] - B[0], C[1] - B[1]), n = Math.ceil(L / 0.25);
+    for (let k = 0; k < n; k++) { const t = k / n, q = [0, 1, 2].map((m) => cr(A[m], B[m], C[m], D[m], t)); if (P.length) s += Math.hypot(q[0] - P[P.length - 1][0], q[1] - P[P.length - 1][1]); P.push([q[0], q[1], q[2], s]); }
+  }
+  for (let i = 0; i < P.length; i++) { const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; P[i].push((b[0] - a[0]) / l, (b[1] - a[1]) / l); }
+  return P;
+})();
+// 离中线多远（a）、在哪一边（side：+1 右手，即峡口进去的北壁、拐弯后的东壁；−1 左手）、峡底高（fl）、走了多远（s）、两壁的壁脚宽和壁高
+export function gorgeAt4(x, z) {
+  let best = 1e18, bi = 0;
+  for (let i = 0; i < GS4.length; i += 4) { const q = GS4[i], d = (x - q[0]) ** 2 + (z - q[1]) ** 2; if (d < best) { best = d; bi = i; } }
+  for (let i = Math.max(0, bi - 4); i < Math.min(GS4.length, bi + 5); i++) { const q = GS4[i], d = (x - q[0]) ** 2 + (z - q[1]) ** 2; if (d < best) { best = d; bi = i; } }
+  const q = GS4[bi], ox = x - q[0], oz = z - q[1], side = q[4] * oz - q[5] * ox >= 0 ? 1 : -1, sArc = q[3];
+  // 壁脚离中线：峡口一段喇叭口，往里两边错开起伏（犬牙交错）
+  const k = smooth(2, 11, sArc), ph = sArc * 0.55;
+  const wR = 2.4 + 0.55 * Math.sin(ph) + 0.25 * Math.sin(ph * 2.3 + 1), wLf = 2.5 - 0.5 * Math.sin(ph + 0.5) + 0.25 * Math.sin(ph * 1.7 + 2);
+  const w = side > 0 ? wR + (7.5 - wR) * (1 - k) : wLf + (8.5 - wLf) * (1 - k);
+  const H = (13 * smooth(1, 12, sArc) + 4 * smooth(12, 24, sArc) + 4 * smooth(22, 36, sArc)) * (1 + 0.14 * (fbm(sArc * 0.13 + (side > 0 ? 3 : 9), 1.7) - 0.5)) * (side > 0 ? 1.08 : 0.94);
+  return { a: Math.sqrt(best), side, fl: q[2], s: sArc, w, H, end: x < q[0] - 0.3 && bi === GS4.length - 1 };
+}
+// 峡谷的地形大样：slot（峡里 0、壁上 1）和 wall（壁的地形高度：壁顶往外缓缓圆下去，南边一道厚山梁再落进云谷）
+export function gorge4(x, z) {
+  const G = gorgeAt4(x, z), { a, w, H } = G;
+  const rise = smooth(w + 2.0, w + 4.6, a), slot = smooth(w + 2.2, w + 6, a); // 地形壁藏在石面后面（石面在 w 到 w+1.4，皴的凹处也不露出地形；1.5 米网格从峡底到壁上要留一格平的，不然三角面从壁脚戳出来）
+  let wall = G.fl + H * rise * (1 - 0.45 * smooth(w + 7, w + 20, a)) + H * 0.3 * (fbm(x * 0.09 + 21, z * 0.09) - 0.5) * smooth(w + 2, w + 7, a); // 壁顶起伏几个山头（不是一块平顶台）
+  if (G.side < 0 && G.s < 22) wall -= (H + 9) * smooth(w + 10, w + 26, a) * smooth(2, 8, G.s); // 南边：山梁厚十来米，往外落进云谷
+  wall -= 60 * smooth(w + 18, w + 32, a); // 离峡三十米外不管（北边、后山照旧）
+  return { slot, fl: G.fl, wall: H > 0.05 ? wall : -1e9, G };
 }
 // v46 第四章的地面上色：近处石绿坡，往后渐成淡赭远坡
 export function lawn4(x, z) {
@@ -828,6 +896,7 @@ const mountAmp = (x) => 34 + 26 * smooth(-40, -110, x) * smooth(-235, -190, x) +
 // 地形高度（不含建筑、桥面）
 export function terrainHeight(x, z) {
   let h = terrainBase(x, z);
+  if (FOLD.on && !FOLD.off) h += foldAt(x, z); // v57 山体褶皱
   const M = massifAt(x, z, h); if (M.y > h + 0.5) h = M.y - 0.4; // 隐春巖：地形垫在石壁网格下面
   if (!LAYOUT_V21.on && CH2(x)) { const R = rocks2At(x, z, h); if (R.y > h + 0.5) return R.y - 0.4; } // 磐玉隈的巨岩
   const [lx, lz] = caveLocal(x, z);
@@ -875,6 +944,7 @@ export function terrainBase(x, z) {
     const k = smooth(-283, -296, x), hs = ch3Ground(x, z, hPre) * (1 - k) + ch4Ground(x, z, hPre) * k;
     h += (hs - h) * smooth(p.z + 4, p.z + 10, z);
   }
+  if (!LAYOUT_V21.on && !V29.on && !S56.off && x > -302 && x < -202 && z > 34) h = south3(x, z, h); // v57 龍湫·禪窩南边合拢
   if (!LAYOUT_V21.on && !V29.on && !S56.off && x > -218 && x < -120 && z > 13) h = south5(x, z, h); // v56 超然亭对面合拢
   if (!LAYOUT_V21.on) h += caveHill(x, z);
   if (x > -46 && x < 2 && !S6.old && !V29.on && !LAYOUT_V21.on) h = grove7(x, z, h);
@@ -942,6 +1012,68 @@ export function blocked(x, z, rad = 0.3) {
   return false;
 }
 
+// ---------- v57 山体褶皱（Yang：投稿前把山再打磨精细些，更自然、有意境）----------
+// 原画的山坡不是光溜溜的馒头：从山头往下一道道顺坡的褶（披麻皴），脊上受光、沟里透赭，坡脚给褶分成一瓣瓣。
+// 做法：地形网格算好以后，按“大样”坡向（模糊过的高度场的梯度）在山坡上叠一层顺坡的褶——每 7 米一格撒一个点，
+// 点四周起一组横着坡走的波（波峰圆、波谷尖，谷就是一道沟），相邻几格的波按距离加权并起来，沟就会分岔、汇合，像水冲出来的。
+// 只在离游线远、比游线高、够陡的山坡上起褶；山头（坡缓）照旧圆浑；亭台、潭、洞、石阶、超然亭细网格、第二章核心、峡谷石壁四周不动。
+// 褶的高度存成网格（FOLD.arr），terrainHeight 双线性取值叠上去，人、树落脚和网格一致。撒树、撒草时关掉（FOLD.off），随机序列不变，种下去时再落到褶上。
+export const FOLD = { arr: null, on: false, off: false };
+function foldAt(x, z) {
+  const { x0, z0, step } = WORLD, A = FOLD.arr, nx = FOLD.nx, fi = (x - x0) / step, fj = (z - z0) / step;
+  if (fi < 0 || fj < 0 || fi > nx - 1.001 || fj > FOLD.nz - 1.001) return 0;
+  const i = Math.floor(fi), j = Math.floor(fj), u = fi - i, v = fj - j, k = j * nx + i;
+  return (A[k] * (1 - u) + A[k + 1] * u) * (1 - v) + (A[k + nx] * (1 - u) + A[k + nx + 1] * u) * v;
+}
+const FOLD_STAIRS = [[[3, -15.5], [2, -22], [-1, -30], [-4, -38], [-7, -45.5]], [[-4.5, -53], [-1.5, -58.5], [-5, -64.5], [-1.5, -70.5], [-6, -77], [-3, -84], [-7, -90], [-6.8, -96.5]], QN_STAIRS];
+function foldKeep(x, z) { // 1：可以起褶；0：不动
+  let k = 1;
+  if (x > -206 && x < -34 && z < 14) k *= smooth(14, 20, z) + smooth(-200, -212, x) + smooth(-40, -28, x); // 第二章核心（超然亭、琪樹峡、磐玉隈都已照原画 1:1，不动）
+  if (k <= 0) return 0;
+  for (const Pd of PADS_NOW) { const r = Math.hypot(x - Pd.x, z - Pd.z); if (r < Pd.r + (Pd.b ?? 7) + 6) k *= smooth(Pd.r + (Pd.b ?? 7) + 1, Pd.r + (Pd.b ?? 7) + 6, r); }
+  for (const [P, R] of [[POND, 2.8], [POOL3, 2.4], [POOLW, 2.6]]) { const r = pondShape(x, z, P); if (r < R + 0.6) k *= smooth(R, R + 0.6, r); }
+  for (const [cx, cz, r0, r1] of [[CAVE.x, CAVE.z, 16, 22], [MOYA3.x, MOYA3.z, 13, 18], [GROTTO3.x, GROTTO3.z, 10, 15], [PEAK4.x, PEAK4.z, 8, 12], [SIYANG4.x, SIYANG4.z - 8, 13, 18], [CHUPING.x, CHUPING.z, CHUPING.r + 8, CHUPING.r + 13], [CHAORAN.x, CHAORAN.z, 10, 14]]) {
+    const r = Math.hypot(x - cx, z - cz); if (r < r1) k *= smooth(r0, r1, r);
+  }
+  k *= 1 - smooth(203, 210, x) * smooth(300, 293, x) * smooth(-100, -93, z) * smooth(12, 5, z); // 大觀廊整片（院落台地）不动
+  if (x < -392) { const G = gorgeAt4(x, z); k *= smooth(G.w + 6, G.w + 10, G.a) + smooth(-394, -390, x); } // 卷尾峡谷石壁四周
+  if (k <= 0) return 0;
+  if (x > 92 && x < 250) { const d = distToStream(x, z).d; if (d < 8) k *= smooth(4, 8, d); }
+  if (x < -360) { const d = distToStream4(x, z).d; if (d < 7) k *= smooth(3.5, 7, d); }
+  for (const L of FOLD_STAIRS) { const d = distToLine(x, z, L); if (d < 7) k *= smooth(3, 7, d); }
+  return k;
+}
+const fh = (i, j, s) => { let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263) + Math.imul(s, 1442695041)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+// 一组顺坡的褶：(tx, tz) 是等高线方向（横着坡），lam 是褶距
+function foldWave(x, z, tx, tz, L, lam, seed) {
+  const ci = Math.floor(x / L), cj = Math.floor(z / L); let acc = 0, ws = 0;
+  for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+    const I = ci + di, J = cj + dj, cx = (I + 0.15 + 0.7 * fh(I, J, seed)) * L, cz = (J + 0.15 + 0.7 * fh(I, J, seed + 7)) * L;
+    const ox = x - cx, oz = z - cz, w = Math.exp(-(ox * ox + oz * oz) / (L * L * 0.55));
+    const u = (ox * tx + oz * tz) / lam + fh(I, J, seed + 13);
+    acc += w * (2 * Math.abs(Math.sin(Math.PI * u)) - 1); ws += w; // 波峰圆、波谷尖（尖的是沟）
+  }
+  return acc / ws;
+}
+export function buildFoldField(HG, nx, nz, x0, z0, step, rel) {
+  const D = new Float32Array(nx * nz);
+  const B = boxBlur(boxBlur(HG, nx, nz, 2), nx, nz, 2), B2 = boxBlur(boxBlur(HG, nx, nz, 5), nx, nz, 5); // 大样坡向：细的给小褶，粗的给大的支脉
+  for (let j = 1; j < nz - 1; j++) for (let i = 1; i < nx - 1; i++) {
+    const k = j * nx + i, x = x0 + i * step, z = z0 + j * step;
+    const gx = (B[k + 1] - B[k - 1]) / (2 * step), gz = (B[k + nx] - B[k - nx]) / (2 * step), s = Math.hypot(gx, gz);
+    if (s < 0.18 || rel[k] < 2) continue;
+    let m = smooth(0.18, 0.55, s) * smooth(2, 8, rel[k]) * smooth(5, 11, Math.abs(z - pathAt(x).z));
+    if (m <= 0) continue;
+    m *= foldKeep(x, z); if (m <= 0) continue;
+    const Gx = (B2[k + 1] - B2[k - 1]) / (2 * step), Gz = (B2[k + nx] - B2[k - nx]) / (2 * step), S = Math.hypot(Gx, Gz) || 1e-6;
+    const vary = 0.55 + 0.9 * vnoise(x * 0.025 + 3.1, z * 0.025 - 1.7);                               // 有的坡褶深，有的浅
+    const big = foldWave(x, z, -Gz / S, Gx / S, 13, 11, 5701) * Math.min(1.9, 0.75 * s);                 // 支脉：坡脚分成一瓣瓣
+    const fine = foldWave(x, z, -gz / s, gx / s, 6.5, 5.2, 5702) * Math.min(0.85, 0.38 * s);            // 披麻皴那样的细褶
+    D[k] = (big * smooth(0.25, 0.6, S) + fine) * m * vary;
+  }
+  return D;
+}
+
 // ---------- 地形网格 ----------
 export const WORLD = { x0: -428, x1: 356, z0: -178, z1: 88, step: 1.5 }; // v47 卷尾往左加长 72 米（原来 −356）：四陽洞左移 45 米，画境镜头左半还要看到 −420 的山。撒树、撒石、云的随机序列仍按 −356 算，见 main.js OLDX0
 // v35 琪樹峡峡里的土（原画 IMG_1264 石缝间是赭褐的土）：画境镜头下原画石阵那一圈反投影到地上（c5/rc6.mjs），边上软 3 米
@@ -970,6 +1102,11 @@ export function buildTerrainGeometry(THREE) {
     pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z;
     rel[k] = h - p.y;
     pathM[k] = 1 - smooth(1.0, 2.4, Math.abs(z - p.z) + (fbm(x * 0.3, z * 0.3) - 0.5) * 1.2);
+  }
+  { // v57 山体褶皱（见 buildFoldField）
+    const D = buildFoldField(HG, nx, nz, x0, z0, step, rel);
+    for (let k = 0; k < D.length; k++) { pos[k * 3 + 1] += D[k]; rel[k] += D[k]; }
+    Object.assign(FOLD, { arr: D, nx, nz, on: true });
   }
   // 山头起伏：高度减去周围的平均高度，凸起（山脊、山头上半）为正，凹处（山脚、沟谷）为负。
   // 着色器用它把每个山头画成上青下赭，苔点沿脊线成串，和原画一样。
@@ -1002,11 +1139,12 @@ export function buildTerrainGeometry(THREE) {
   g.setAttribute('aCrest', new THREE.BufferAttribute(crest, 1));
   g.setAttribute('aCrestL', new THREE.BufferAttribute(crestL, 1));
   const mound = new Float32Array(nx * nz), lawn = new Float32Array(nx * nz);
-  for (let k = 0; k < mound.length; k++) { const x = pos[k * 3], z = pos[k * 3 + 2]; mound[k] = Math.min(1, foreMound(x, z) / 3); lawn[k] = lawnWeight(x) * (1 - 0.8 * south5Mask(x, z)) + lawn4(x, z) - 2 * caveApron(x, z); } // 负值：洞前土坪；v56 超然亭对面合拢的山不铺草坡色（同 v50 南山）
+  for (let k = 0; k < mound.length; k++) { const x = pos[k * 3], z = pos[k * 3 + 2]; mound[k] = Math.min(1, foreMound(x, z) / 3); lawn[k] = lawnWeight(x) * (1 - 0.8 * Math.max(south5Mask(x, z), south3Mask(x, z))) + lawn4(x, z) - 2 * caveApron(x, z); } // 负值：洞前土坪；v56 超然亭对面合拢的山不铺草坡色（同 v50 南山）
   g.setAttribute('aMound', new THREE.BufferAttribute(mound, 1));
   g.setAttribute('aLawn', new THREE.BufferAttribute(lawn, 1));
   const gor = new Float32Array(nx * nz); for (let k = 0; k < gor.length; k++) { const x = pos[k * 3], z = pos[k * 3 + 2], g6 = gorge6(x, z), d7 = dome7Tint(x, z, pos[k * 3 + 1]); gor[k] = g6 > 0 ? Math.max(g6, d7) : d7; } // v36 圆包：负值是深草
   g.setAttribute('aGorge', new THREE.BufferAttribute(gor, 1));
+  g.setAttribute('aFold', new THREE.BufferAttribute(FOLD.arr, 1)); // v57 褶的起伏：着色器在褶沟里勾淡墨赭线
   g.setIndex(new THREE.BufferAttribute(idx.subarray(0, n), 1));
   g.computeVertexNormals();
   g.computeBoundingSphere();
@@ -1047,7 +1185,7 @@ export function buildTerrainPatch(THREE) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   const gor = new Float32Array(nx * nz); // 超然亭细网格不在琪樹峡里，全 0
-  for (const [nm, arr] of [['aRel', rel], ['aPath', pathM], ['aCrest', crest], ['aCrestL', crestL], ['aMound', mound], ['aLawn', lawn], ['aRiser', riser], ['aGorge', gor]]) g.setAttribute(nm, new THREE.BufferAttribute(arr, 1));
+  for (const [nm, arr] of [['aRel', rel], ['aPath', pathM], ['aCrest', crest], ['aCrestL', crestL], ['aMound', mound], ['aLawn', lawn], ['aRiser', riser], ['aGorge', gor], ['aFold', new Float32Array(nx * nz)]]) g.setAttribute(nm, new THREE.BufferAttribute(arr, 1)); // 超然亭一带不加褶（foldKeep）
   g.setIndex(new THREE.BufferAttribute(idx, 1)); g.computeVertexNormals(); g.computeBoundingSphere();
   return g;
 }
