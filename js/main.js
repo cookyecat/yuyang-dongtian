@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PATH, PATH_V29, ZONES, STAGES, PEOPLE, ACTIONS } from './data.js';
 import { MOYA, CAVE, caveLocal, inCave, buildTerrainGeometry, buildTerrainPatch, terrainHeight, surfaceTop, groundHeight, waterLevel, pathAt, slopeAt, blocked, smooth, rand, fbm,
-  POND, POOL, STREAM, STREAM2, PADS, COLLIDERS, addSurface, WORLD, distToStream, pondShape, LOBED, FORE, foreMound, MASSIF, QN_STAIRS, massifAt, distToLine, LAYOUT_V21, DGL, daguanWallTop, CH2, PIAO, PANYU, CHAORAN, STAIRS2, MASSIF2, rocks2At, withOldPath, useOldPath, enterV33, exitV33, pathOn, pathV33At, gorge6,
+  POND, POOL, STREAM, STREAM2, PADS, COLLIDERS, addSurface, WORLD, distToStream, pondShape, LOBED, FORE, foreMound, MASSIF, QN_STAIRS, massifAt, distToLine, LAYOUT_V21, DGL, daguanWallTop, CH2, PIAO, PANYU, CHAORAN, STAIRS2, MASSIF2, rocks2At, withOldPath, useOldPath, enterV33, exitV33, S56, pathOn, pathV33At, gorge6,
   CH3, ZEN3, ZEN3B, GY3, POLE3, MOYA3, POOL3, GROTTO3, LONGQIU3, PADS_NOW, POOLW, CHUPING, back8,
   CH4, XI4, PEAK4, SIYANG4, QD4, STREAM4 } from './world.js';
 import { PAL, loadTex, terrainMaterial, rockMaterial, cliffMaterial, foliageMaterial, flatMaterial,
@@ -1289,6 +1289,19 @@ exitV33();
   grove('pine', MOBILE ? 4 : 7, -333, 72, 7, 0.5, 0.7, 0.84, 3.2); grove('dwarfpine', MOBILE ? 3 : 4, -304, 36, 4, 0.7, 0.9, 0.68, 2.8);
   add('pine', -410.4, -3.4, 1.25, 0.78); add('dwarfpine', -409.6, 12.2, 0.8, 0.68); add('shrub', -408.4, 13.2, 0.6, 0.66);
 }
+// v56 超然亭对面合拢的山（world.js SOUTH5）：山头上一丛丛松、杂树，坡上一团团墨绿的点叶，丛与丛之间留白（同 v50 南山）。追加在列表末尾，别处的树一棵不动
+{
+  const r = rand(5656), add = (t, x, z, s, tint) => TREES[t].push([x, z, s, r() * 100, 1, tint]);
+  const grove = (t, n, cx, cz, R, s0, s1, tint, gap = 2.2) => { const P = [];
+    for (let i = 0; i < 400 && P.length < n; i++) { const a = r() * 6.28, d = R * Math.sqrt(r()), x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d * 0.7;
+      if (slopeAt(x, z) > 1.1 || P.some(([u, v]) => Math.hypot(u - x, v - z) < gap)) continue; P.push([x, z]); add(t, x, z, s0 + r() * (s1 - s0), tint); } };
+  // 近处一圈矮山：亭正对面那座山头三株松，左右山头几丛矮松、点叶
+  grove('pine', 3, -171, 34, 3, 0.55, 0.7, 0.8, 2.4); grove('dwarfpine', MOBILE ? 2 : 3, -189, 36, 4, 0.75, 0.95, 0.7, 2.4); grove('shrub', MOBILE ? 3 : 5, -156, 40, 5, 0.6, 0.85, 0.68, 2);
+  grove('dwarfpine', 2, -142, 31, 3, 0.7, 0.9, 0.7, 2.4); grove('shrub', MOBILE ? 2 : 4, -202, 30, 4, 0.55, 0.8, 0.68, 2);
+  // 中间一道、地图边上一道：远山上的松是一簇簇小点
+  grove('pine', MOBILE ? 4 : 7, -162, 67, 6, 0.6, 0.85, 0.82, 3); grove('broad', MOBILE ? 2 : 3, -195, 64, 4, 0.75, 0.95, 0.74, 3.2); grove('pine', MOBILE ? 3 : 5, -144, 58, 4, 0.6, 0.8, 0.82, 3);
+  grove('pine', MOBILE ? 4 : 6, -186, 86, 6, 0.55, 0.75, 0.84, 3.2); grove('pine', MOBILE ? 3 : 5, -141, 84, 5, 0.55, 0.75, 0.84, 3.2);
+}
 const foliageMats = [], treeSets = [];
 function plantTrees(type, variants, maps) {
   const list = TREES[type];
@@ -1355,6 +1368,7 @@ plantTrees('fir', [91, 92, 93], [tex.pine]);
   const N = MOBILE ? 3800 : 7000;
   const lm = new THREE.InstancedMesh(geo, fm, N); lm.frustumCulled = false; lm.layers.set(1);
   const r = rand(123), items = [];
+  S56.off = true; // v56 超然亭对面新起的山不算（草按原来的地形撒，别处的草一簇不动），撒完再落到新地形上
   for (let i = 0; i < N * 2 && items.length < N; i++) {
     const cat = i % 9, inSlice = cat < 5, ch1 = cat === 5 || cat === 6; // 玉女潭密，第一章草坡次之，其余沿游线稀疏
     const x = inSlice ? -12 + r() * 104 : ch1 ? 94 + r() * 250 : OLDX0 + r() * (WORLD.x1 - OLDX0);
@@ -1366,6 +1380,7 @@ plantTrees('fir', [91, 92, 93], [tex.pine]);
     const m = new THREE.Matrix4().compose(new THREE.Vector3(x, terrainHeight(x, z) - 0.05, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r() * 3, 0)), new THREE.Vector3(s, s * (0.7 + r() * 0.6), s));
     const k = 0.85 + r() * 0.3; items.push({ x, z, m, c: new THREE.Color(k, k, k * 0.95) });
   }
+  S56.off = false; for (const it of items) if (it.x > -218 && it.x < -120 && it.z > 13) it.m.elements[13] = terrainHeight(it.x, it.z) - 0.05;
   lm.setColorAt(0, new THREE.Color(1, 1, 1));
   treeSets.push({ tm: null, lm, items, r: MOBILE ? 50 : 85 }); scene.add(lm);
 }
@@ -1409,7 +1424,7 @@ const CLOUD_L = [];
   for (let k = 0; k < 16; k++) { const x = -200 + r() * 160, y = 22 + r() * 16, z = -30 - r() * 60, w = 20 + r() * 20; if (y > terrainHeight(x, z) + 6) L.push([x, y, z, w]); } // 云山仙境的云海（v27 山抬高了，埋进山里的不要）
   // 第二章（v27）：超然亭左边和脚下的云海、琪樹峡左下的一片云（原画 IMG_1263、1264）
   for (const [x, y, z, w] of [[-203, 25, -24, 34], [-200, 31, -40, 36], [-196, 17, -2, 30], [-201, 34, -50, 50], [-184, 33, -46, 40], [-178, 30, -36, 34], [-196, 40, -30, 36],
-    [-198, 21, 16, 40], [-132, 18, 26, 40], [-148, 30, -34, 26], [-204, 50, -36, 42], [-199, 62, -48, 40], [-146, 25, -4, 30], [-134, 24, -2, 30], [-152, 23, 2, 26], [-197, 27, -20, 28], [-200, 22, -10, 30], [-162, 20, 13, 28], [-171, 16, 31, 24], [-147, 18, 27, 26]]) L.push([x, y, z, w]); // 末两团：亭左峡谷里的云
+    [-198, 21, 16, 40], [-132, 18, 26, 40], [-148, 30, -34, 26], [-204, 50, -36, 42], [-199, 62, -48, 40], [-146, 25, -4, 30], [-134, 24, -2, 30], [-152, 23, 2, 26], [-197, 27, -20, 28], [-200, 22, -10, 30], [-162, 20, 13, 28], [-177, 15, 16, 28], [-150, 15.5, 17, 26]]) L.push([x, y, z, w]); // 末两团：亭前云谷里的云（v56 南边起了山，从山坡上挪进谷里）
   // v34 琪樹峡左下：石阶下面一大片云（原画左下四分之一都是云），云顶比游线低几米
   for (const [x, y, z, w] of [[-131, 19, 2, 28], [-120, 18, 4, 26], [-111, 16, 8, 18], [-127, 21, -2, 18], [-138, 21, -1, 20], [-117, 20, -3, 14]]) L.push([x, y, z, w]);
   // v34 琪樹峡峡顶主峰身后压成的云谷里一层薄云（原画峰后是淡淡的远山和云）

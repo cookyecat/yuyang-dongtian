@@ -353,6 +353,35 @@ const SOUTH4 = [
   [-307, 34, 8, 6], [-337, 33, 7, 4.5], [-367, 35, 8, 6], [-393, 35, 7, 4],                                          // 近处矮坡包
   [-307, 50, 11, 14], [-320, 56, 17, 26], [-334, 50, 10, 13], [-350, 51, 12, 11], [-363, 61, 16, 24], [-386, 56, 14, 19], [-399, 50, 8, 9], // 中间一道：水犀洞对面最高，两景之间低成鞍，四陽洞对面再起
   [-312, 80, 18, 30], [-342, 82, 20, 33], [-374, 82, 18, 29], [-402, 70, 12, 22]];                                     // 后面高的一道
+// v56 超然亭对面（Yang：亭和雙仙石对面是一道比两旁都低的沟，一直通到画外，没有山石挡着，漏仙气）。
+// 原因：v30 亭前陡坡往下压的那段没有南界，从崖脚一路压到地图边，x −196..−140 成了一条 10 米高的长沟，两边各剩一道又薄又高的老山脊。
+// 原画亭前是一层层往下的绿坡，坡间是云，下缘有坡包和松收住（雙仙石那边）。改成：崖脚到 z 13 一点不动（画境镜头里的部分、亭前碎石、灌丛都按这里的地形撒），云谷一直留到 z 25 前后，
+// 云谷南边起一圈圆浑的矮山合抱，山后一道、地图边上一道更高的，山头之间软连成鞍（同 SOUTH4），两头接上第三章和琪樹峡的坡，不起直墙。
+// [x, z, 半径（东西向）, 比谷底高, 南北向扁几倍]：三道错开排，山头有大有小、有圆有扁，免得排成一溜一样的包
+const SOUTH5 = [
+  [-200, 15, 6, 10, 1.0], [-203, 22, 7, 10, 1.0], [-136, 15, 7, 13, 1.0],                                                                                     // 云谷两边那两道薄山脊收成圆山头（z 13 以北不动：亭前碎石、灌丛按地形撒，随机序列不能变）
+  [-203, 31, 11, 10, 1.1], [-189, 36, 14, 13, 1.4], [-171, 34, 11, 16, 1.0], [-156, 40, 15, 11, 1.5], [-142, 31, 11, 14, 1.1], [-129, 27, 8, 9, 1.0], // 近处一圈矮山，围住云谷
+  [-210, 57, 12, 11, 1.2], [-195, 64, 15, 20, 1.2], [-178, 57, 12, 15, 1.0], [-162, 67, 18, 25, 1.3], [-144, 58, 13, 17, 1.0], [-129, 62, 12, 20, 1.1], // 中间一道
+  [-206, 84, 15, 15, 1.2], [-186, 86, 18, 27, 1.2], [-163, 90, 20, 31, 1.3], [-141, 84, 15, 26, 1.1], [-121, 83, 14, 26, 1.1]];                       // 地图边上更高的一道
+export const S56 = { off: false }; // 撒草时暂时关掉（草按原来的地形撒，随机序列不变，撒完再落到新地形上）
+export const south5Mask = (x, z) => smooth(28, 40, z) * smooth(-218, -208, x) * smooth(-120, -130, x); // 山体上色（不铺草坡色）的范围
+function south5(x, z, h) {
+  const k = smooth(-218, -208, x) * smooth(-120, -130, x) * smooth(13, 18, z);
+  if (k <= 0) return h;
+  let acc = 0, n = 0;
+  for (const [cx, cz, R, Hh, sq] of SOUTH5) {
+    const dx = x - cx, dz = (z - cz) * sq, th = Math.atan2(dz, dx);
+    const d = Math.hypot(dx, dz) / R * (1 + 0.2 * (fbm(x * 0.05 + cz, z * 0.05 + cx * 0.01) - 0.5) + 0.1 * Math.sin(3 * th + cx));
+    if (d >= 1) continue;
+    // 顺坡几道脊（同 lobedHeight），山腰上才有
+    const rib = Math.pow(1 - Math.abs(Math.sin(th * 6 + fbm(x * 0.05, z * 0.05) * 3)), 3) * Hh * 0.07 * smooth(0.25, 0.5, d) * smooth(1, 0.7, d);
+    acc += Math.exp(0.3 * (Hh * dome4(d) + rib)); n++;
+  }
+  let T = 10.6 + 11 * smooth(26, 84, z) + 0.8 * (fbm(x * 0.09 + 5, z * 0.09) - 0.5);
+  if (n) { const u = Math.log(acc - n + 1) / 0.3; T += u * (1 + 0.14 * (fbm(x * 0.11 + z * 0.04, z * 0.11) - 0.5)); }
+  // 只在原来那两道薄山脊（x ≈ −200、−135）和沟里往下削；两头接第三章、琪樹峡的地方只往上垫，不把人家的坡削低
+  return h + (T - h) * (T < h ? k * smooth(-211, -205, x) * smooth(-121, -127, x) : k);
+}
 // v47 水犀洞左边那座尖顶青山（原画 1260 左半，山尖在 u .2、v .25）和它右后一座矮些的石青色小山
 function cone4(x, z) {
   let s = 0;
@@ -846,6 +875,7 @@ export function terrainBase(x, z) {
     const k = smooth(-283, -296, x), hs = ch3Ground(x, z, hPre) * (1 - k) + ch4Ground(x, z, hPre) * k;
     h += (hs - h) * smooth(p.z + 4, p.z + 10, z);
   }
+  if (!LAYOUT_V21.on && !V29.on && !S56.off && x > -218 && x < -120 && z > 13) h = south5(x, z, h); // v56 超然亭对面合拢
   if (!LAYOUT_V21.on) h += caveHill(x, z);
   if (x > -46 && x < 2 && !S6.old && !V29.on && !LAYOUT_V21.on) h = grove7(x, z, h);
   // 玉女潭：前岸缓坡入水，后岸是陡崖（崖面另建网格），崖上是一片台地
@@ -972,7 +1002,7 @@ export function buildTerrainGeometry(THREE) {
   g.setAttribute('aCrest', new THREE.BufferAttribute(crest, 1));
   g.setAttribute('aCrestL', new THREE.BufferAttribute(crestL, 1));
   const mound = new Float32Array(nx * nz), lawn = new Float32Array(nx * nz);
-  for (let k = 0; k < mound.length; k++) { const x = pos[k * 3], z = pos[k * 3 + 2]; mound[k] = Math.min(1, foreMound(x, z) / 3); lawn[k] = lawnWeight(x) + lawn4(x, z) - 2 * caveApron(x, z); } // 负值：洞前土坪
+  for (let k = 0; k < mound.length; k++) { const x = pos[k * 3], z = pos[k * 3 + 2]; mound[k] = Math.min(1, foreMound(x, z) / 3); lawn[k] = lawnWeight(x) * (1 - 0.8 * south5Mask(x, z)) + lawn4(x, z) - 2 * caveApron(x, z); } // 负值：洞前土坪；v56 超然亭对面合拢的山不铺草坡色（同 v50 南山）
   g.setAttribute('aMound', new THREE.BufferAttribute(mound, 1));
   g.setAttribute('aLawn', new THREE.BufferAttribute(lawn, 1));
   const gor = new Float32Array(nx * nz); for (let k = 0; k < gor.length; k++) { const x = pos[k * 3], z = pos[k * 3 + 2], g6 = gorge6(x, z), d7 = dome7Tint(x, z, pos[k * 3 + 1]); gor[k] = g6 > 0 ? Math.max(g6, d7) : d7; } // v36 圆包：负值是深草
