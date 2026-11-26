@@ -1325,7 +1325,7 @@ exitV33();
   const r = rand(5656), add = (t, x, z, s, tint) => TREES[t].push([x, z, s, r() * 100, 1, tint]);
   const grove = (t, n, cx, cz, R, s0, s1, tint, gap = 2.2) => { const P = [];
     for (let i = 0; i < 400 && P.length < n; i++) { const a = r() * 6.28, d = R * Math.sqrt(r()), x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d * 0.7;
-      if (slopeAt(x, z) > 1.1 || P.some(([u, v]) => Math.hypot(u - x, v - z) < gap)) continue; P.push([x, z]); add(t, x, z, s0 + r() * (s1 - s0), tint); } };
+      if (z > 86.5 || slopeAt(x, z) > 1.1 || P.some(([u, v]) => Math.hypot(u - x, v - z) < gap)) continue; P.push([x, z]); add(t, x, z, s0 + r() * (s1 - s0), tint); } }; // v58 z 86.5 以外是地图边（地形网格到 z 88），树会悬空
   // 近处一圈矮山：亭正对面那座山头三株松，左右山头几丛矮松、点叶
   grove('pine', 3, -171, 34, 3, 0.55, 0.7, 0.8, 2.4); grove('dwarfpine', MOBILE ? 2 : 3, -189, 36, 4, 0.75, 0.95, 0.7, 2.4); grove('shrub', MOBILE ? 3 : 5, -156, 40, 5, 0.6, 0.85, 0.68, 2);
   grove('dwarfpine', 2, -142, 31, 3, 0.7, 0.9, 0.7, 2.4); grove('shrub', MOBILE ? 2 : 4, -202, 30, 4, 0.55, 0.8, 0.68, 2);
