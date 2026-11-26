@@ -598,6 +598,8 @@ let moyaCliff = null;
     if (s > 0.7 && z > -20) circleCol(x, z, s * 1.1);
   }
 }
+const RED3 = []; // v59 龍湫洞口石檐上的红叶（种树时并进 TREES.redshrub）
+const GORGE_TUFT = []; // v59 卷尾峡底碎石的位置（苔草围着长）
 // v39 龍湫（IMG_1261）：层层赭灰巨岩里一个深洞，洞里一潭水、几根石柱；洞口上方几层石青石檐往外探，檐上几丛红叶；洞右前一块大青石题“龍湫”。
 // 原画里没有白瀑布，旧的瀑布撤掉。位置按 S03 画境镜头反投影（ch3/cam.py）
 {
@@ -615,12 +617,12 @@ let moyaCliff = null;
   blk(-275.6, -25.2, 3.4, 4.2, 4, 11.2, { craggy: true, tone: GO, ry: -0.2 });
   blk(-278.6, -28.8, 3.6, 4, 5.5, 12.4, { craggy: true, tone: 0.9, ry: 0.3 });
   blk(-274.4, -31, 3.4, 3.4, 9, 16.5, { craggy: true, tone: GO, ry: 0.6, col: 0 });
-  // 洞顶：后半一整块压着；前沿几层石青石檐往外探、往右低下去
+  // 洞顶：后半一整块压着；前沿几层石青石檐往外探、往右低下去（v59 石檐由圆角软块改成嶙峋石，往前探）
   blk(-268.6, -28.6, 5.8, 4.8, 12.2, 21.5, { craggy: true, tone: GO, ry: 0, col: 0 });
-  blk(-269.5, -22.8, 4.2, 2.6, 12.0, 14.1, { pillow: true, tone: BL, ry: 0.1, col: 0 });
-  blk(-265.6, -21.8, 3.8, 2.4, 11.2, 12.9, { pillow: true, tone: BL, ry: -0.05, col: 0 });
-  blk(-271.3, -24, 3.2, 2.6, 13.7, 16.0, { pillow: true, tone: 0.52, ry: 0.25, col: 0 });
-  blk(-267.1, -24.6, 3.6, 2.4, 13.9, 15.7, { pillow: true, tone: BL, ry: -0.1, col: 0 });
+  blk(-269.5, -22.8, 4.2, 2.6, 12.0, 14.1, { craggy: true, tone: BL, ry: 0.1, col: 0, lean: [0, 0.22] });
+  blk(-265.6, -21.8, 3.8, 2.4, 11.2, 12.9, { craggy: true, tone: BL, ry: -0.05, col: 0, lean: [0.05, 0.25] });
+  blk(-271.3, -24, 3.2, 2.6, 13.7, 16.0, { craggy: true, tone: 0.52, ry: 0.25, col: 0, lean: [-0.05, 0.2] });
+  blk(-267.1, -24.6, 3.6, 2.4, 13.9, 15.7, { craggy: true, tone: BL, ry: -0.1, col: 0, lean: [0, 0.2] });
   // v39 第二轮：岩体再加厚加高（原画 u .45–.72 一整片方硬大石一直顶到画面上缘）
   blk(-252, -27, 5.5, 5, 9, 21, { craggy: true, tone: 0.9, ry: 0.25 });
   blk(-258, -22, 4.5, 4, 7, 15, { craggy: true, tone: GO, ry: -0.35 });
@@ -633,11 +635,10 @@ let moyaCliff = null;
   // 洞里：暗下去的洞壁（半个椭球，开口朝外）
   { const k = new Kit(), g = new THREE.SphereGeometry(1, 18, 12, 0, Math.PI); g.scale(G.hw * 1.15, 9, G.front - G.back + 1); g.rotateY(Math.PI);
     k.add(g, new THREE.Color('#2f271e'), 0, new THREE.Matrix4().makeTranslation(G.x, G.floor - 1, G.front + 0.4)); staticParts.push(k.geometry()); }
-  // 石檐上的几丛红叶（原画洞口上方的红树）
-  { const k = new Kit(), red = [new THREE.Color('#b0473a'), new THREE.Color('#c25a44'), new THREE.Color('#9a3c33')], rr = rand(3911);
-    for (const [cx, cy, cz, n] of [[-270.1, 15.3, -21.6, 9], [-272.7, 16.7, -24.4, 7], [-264.7, 13.7, -20.8, 6]]) for (let i = 0; i < n; i++) {
-      const g = new THREE.IcosahedronGeometry(0.45 + rr() * 0.35, 0); k.add(g, red[i % 3], 0, new THREE.Matrix4().makeTranslation(cx + (rr() - 0.5) * 2.4, cy + (rr() - 0.5) * 1.2, cz + (rr() - 0.5) * 1.6)); }
-    staticParts.push(k.geometry()); }
+  // 石檐上的几丛红叶（原画洞口上方的红树）。v59 原来是几颗红色多面体球，像塑料；改成成丛的矮树，叶子染成朱赭（plantTrees 'redshrub'）
+  // 原画红叶长在洞口左沿，从檐顶一路挂到左边石壁上；y 是石顶高（射线量的）
+  for (const [x, y, z, sc, rot] of [[-273.4, 15.3, -22.8, 1.0, 0.4], [-272.3, 15.6, -23.9, 0.8, 2.1], [-274.4, 15.25, -24.0, 0.85, 1.2], [-275.4, 9.5, -23.0, 0.95, 3.3], [-275.2, 9.75, -24.4, 0.75, 4.0], [-270.4, 13.75, -21.6, 0.7, 4.4]])
+    RED3.push([x, z, sc, rot, 1, 0.92, y]);
   // 第三章其余的石青石：禪窩右边云里露出的一堆、左边绿坡脚下几块、觀音龛旁两块
   blk(-216, -30.5, 3.4, 3, 10.5, 20.5, { craggy: true, tone: BL, ry: 0.3 });
   blk(-212.6, -28.4, 2.6, 2.4, 10.5, 16.8, { craggy: true, tone: 0.5, ry: -0.4 });
@@ -825,6 +826,18 @@ let peakTop4 = () => null;
   // 峡口两边几块落石；北壁峡口那面磨平刻作者题记（credit.js END.moya）
   for (const [x, z, w, d, top, sd] of [[-397.6, -3.6, 2.4, 2.0, 8.8, 4651], [-396.4, 12.4, 2.6, 2.2, 8.4, 4652], [-398.6, 11.2, 1.4, 1.2, 7.0, 4653], [-409.2, 7.2, 1.0, 0.9, 6.9, 4654]])
     blk(x, z, w, d, 4.5, top, { tone: 0.88, ry: x * 0.3 + z, seed: sd, keepY: true, col: 0 });
+  // v59 峡底：壁脚几堆落下来的碎石，一堆一块大的带两三块小的，堆与堆之间留空（原画峡里石脚下的乱石；不是满地撒匀）。苔草见下面 GORGE_TUFT
+  {
+    const r = rand(5959);
+    for (const [cx, sd, n] of [[-403.2, -1, 3], [-405.6, 1, 2], [-411.8, 1, 4], [-414.4, -1, 2], [-417.2, -1, 3], [-419.6, 1, 3], [-423.0, -1, 2]]) { // sd 1 北壁、−1 南壁
+      for (let i = 0; i < n; i++) {
+        const big = i === 0, x = cx + (big ? 0 : (r() - 0.5) * 1.8), P = pathAt(x), w = gorgeAt4(x, P.z - sd).w;
+        const sz = big ? 0.6 + r() * 0.3 : 0.22 + r() * 0.2, a = big ? w - 0.25 - sz * 0.3 : w - 0.2 - r() * 0.8, z = P.z - sd * a, y = H(x, z);
+        blk(x, z, sz * 1.25, sz, y - 0.3, y + sz * (0.45 + r() * 0.3), { tone: r() < 0.45 ? 0.97 : 0.88, ry: r() * 6.28, seed: 5900 + Math.round(-x * 7) + i * 31, keepY: true, col: 0 });
+        GORGE_TUFT.push([x, z, sz]);
+      }
+    }
+  }
   // 题名壁：一道低石屏，背后、两头靠着几块暖灰的嶙峋石（tone .72，同磐玉隈大石板的浅灰）（不是一块孤零零的方石）。v50 随题名壁挪到玉女潭玉光閣西边（见 credit.js END.wall）
   { const S = END.wall, fx = Math.sin(S.ry), fz = Math.cos(S.ry), ax = Math.cos(S.ry), az = -Math.sin(S.ry), y0 = H(S.x, S.z);
     blk(S.x - fx * 1.6, S.z - fz * 1.6, S.w + 1.2, 2.8, y0 - 1, y0 + 4.6, { tone: 0.72, ry: S.ry, seed: 4669, col: 0, keepY: true });
@@ -938,7 +951,7 @@ await step('种林木');
 FOLD.off = true; // v57 撒树时不算山体褶皱（随机序列不变），种下去时再落到褶上
 LAYOUT_V21.on = true; // 布局按 v21 的地形算（见 world.js），种下去时再落到新地形上
 useOldPath(true); // 见 world.js useOldPath
-const TREES = { broad: [], pine: [], bamboo: [], old: [], tallpine: [], cypress: [], shrub: [], dwarfpine: [], fir: [] }; // fir：v39 第三章的杉
+const TREES = { broad: [], pine: [], bamboo: [], old: [], tallpine: [], cypress: [], shrub: [], dwarfpine: [], fir: [], redshrub: RED3 }; // fir：v39 第三章的杉
 // 原画里一团团圆冠杂树的地方（金晶巖洞周、大觀廊右坡），随机种下的松在这里换成杂树（只换种类，不动随机数）
 const roundCrownZone = (x, z) => { const [lx, lz] = caveLocal(x, z); return (Math.abs(lx) < 26 && lz > -26 && lz < 8) || (x > 258 && x < 292 && z > -45 && z < 12); };
 // 玉女潭按原画手摆
@@ -1334,13 +1347,13 @@ exitV33();
   grove('pine', MOBILE ? 4 : 6, -186, 86, 6, 0.55, 0.75, 0.84, 3.2); grove('pine', MOBILE ? 3 : 5, -141, 84, 5, 0.55, 0.75, 0.84, 3.2);
 }
 const foliageMats = [], treeSets = [];
-function plantTrees(type, variants, maps) {
+function plantTrees(type, variants, maps, o = {}) { // o.as：借别的树种的形；o.hue：叶色（v59 红叶）
   const list = TREES[type];
   variants.forEach((seed, vi) => {
-    const v = treeVariant(type, seed);
+    const v = treeVariant(o.as || type, seed);
     const sub = list.filter((_, i) => i % variants.length === vi);
     const tm = new THREE.InstancedMesh(v.trunk, flat, sub.length);
-    const fm = foliageMaterial(maps[vi % maps.length], { a2c: false, cl: true }); foliageMats.push(fm);
+    const fm = foliageMaterial(maps[vi % maps.length], { a2c: false, cl: true, hue: o.hue }); foliageMats.push(fm);
     const lm = new THREE.InstancedMesh(v.leaves, fm, sub.length);
     tm.frustumCulled = lm.frustumCulled = false;
     const items = sub.map(([x, z, s, rot, keep, tint, yAbs], j) => { // yAbs：长在网格石顶上的树
@@ -1385,6 +1398,7 @@ plantTrees('old', [41, 42, 43, 44, 45], [tex.clump[2], tex.clump[1], tex.clump[4
 plantTrees('shrub', [71, 72, 73, 74], [tex.clump[0], tex.clump[3], tex.clump[1], tex.clump[2]]);
 plantTrees('dwarfpine', [81, 82, 83], [tex.pine]);
 plantTrees('fir', [91, 92, 93], [tex.pine]);
+plantTrees('redshrub', [75, 76], [tex.clump[0], tex.clump[3]], { as: 'shrub', hue: [1.5, 0.62, 0.48] }); // v59 龍湫洞口石檐上的红叶
 // 远树：近树画到 TREE_R 为止，再远的换成原画式的远树画片（见 fartrees.js）
 {
   const far = [];
@@ -1431,6 +1445,24 @@ plantTrees('fir', [91, 92, 93], [tex.pine]);
     const s = 0.35 + r() * 0.45, y = terrainHeight(x, z) - 0.05;
     const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r() * 3, 0)), new THREE.Vector3(s * 1.2, s * (0.6 + r() * 0.5), s * 1.2));
     const k = 0.62 + r() * 0.25; items.push({ x, z, m, c: new THREE.Color(k * 0.92, k, k * 0.8) });
+  }
+  const lm = new THREE.InstancedMesh(geo, fm, Math.max(1, items.length)); lm.frustumCulled = false; lm.layers.set(1);
+  lm.setColorAt(0, new THREE.Color(1, 1, 1));
+  treeSets.push({ tm: null, lm, items, r: MOBILE ? 50 : 85 }); scene.add(lm);
+}
+// v59 卷尾峡底：壁脚一丛丛墨绿苔草，围着碎石、贴着壁脚长，丛与丛之间留空（同琪樹峡的苔草，不用圆苔点）
+{
+  const g1 = new THREE.PlaneGeometry(0.9, 0.6); g1.translate(0, 0.28, 0);
+  const geo = mergeGeometries([g1, g1.clone().rotateY(Math.PI / 2), g1.clone().rotateY(Math.PI / 4)]);
+  const fm = foliageMaterial(tuftTexture(), { a2c: false }); foliageMats.push(fm);
+  const r = rand(5960), items = [];
+  const put = (x, z, s) => { const m = new THREE.Matrix4().compose(new THREE.Vector3(x, terrainHeight(x, z) - 0.05, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r() * 3, 0)), new THREE.Vector3(s * 1.2, s * (0.6 + r() * 0.5), s * 1.2));
+    const k = 0.55 + r() * 0.22; items.push({ x, z, m, c: new THREE.Color(k * 0.9, k, k * 0.78) }); };
+  for (const [x, z, sz] of GORGE_TUFT) for (let i = 0, n = 2 + Math.floor(r() * 3); i < n; i++) { const a = r() * 6.28, d = sz * 0.55 + r() * 0.45; put(x + Math.cos(a) * d, z + Math.sin(a) * d, 0.4 + r() * 0.35); }
+  for (let x = -400.5; x > -424.5; x -= 0.35) for (const sd of [1, -1]) {
+    if (fbm(x * 0.42 + sd * 13, sd * 5.1) < 0.52 || r() < 0.35) continue; // 一段段成丛
+    const X = x + (r() - 0.5) * 0.3, P = pathAt(X), w = gorgeAt4(X, P.z - sd).w;
+    put(X, P.z - sd * (w - 0.05 - r() * 0.45), 0.4 + r() * 0.35);
   }
   const lm = new THREE.InstancedMesh(geo, fm, Math.max(1, items.length)); lm.frustumCulled = false; lm.layers.set(1);
   lm.setColorAt(0, new THREE.Color(1, 1, 1));
