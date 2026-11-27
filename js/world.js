@@ -258,7 +258,12 @@ export const POOL3 = { x: -269.4, z: -22.4, rx: 4.3, rz: 6.6, wl: 5.0 }; // 龍�
 export const GROTTO3 = { x: -268.6, z: -25.4, hw: 4.4, top: 13.0, floor: 5.0, front: -20, back: -31.5 }; // 洞口宽 8.8 米、高 8 米
 export const LONGQIU3 = { x: -263.6, z: -12.6, y: 6.0 };
 // v40（Yang：原来的瀑布、深潭、撑船是自己加的一景，挪到龍湫对面路另一侧的空地）：一道石壁朝着游线，瀑布贴崖落进深潭，潭上一只小船来回
-export const POOLW = { x: -264, z: 27.5, rx: 7.5, rz: 6, wl: 7.6 };
+// v62（Yang：潭水太小）潭放大到几乎和石壁一样宽：见水约 24×18 米（v40 约 10×9），后沿伸到崖脚下、石壁直接从水里起；水边一圈坡（shelf）收窄，岸坎陡些，地形网格（1.5 米）和水面交出的折线才短；
+// 岸线不是正圆：lobes 在椭圆上加几处凸凹（[角度°, 幅度, 宽]，角度从 +x 量起、+z 即崖脚为 90°）——后沿两角撑开贴着崖脚走，左前（西南）鼓出一湾，右前收进一道小岬
+export const POOLW = { x: -264, z: 25.2, rx: 13, rz: 9.2, wl: 7.6, dep: 2.6, shelf: 0.12,
+  lobes: [[125, 0.12, 0.45], [55, 0.12, 0.45], [-145, 0.16, 0.45], [-55, -0.13, 0.3], [-95, -0.05, 0.35], [160, -0.07, 0.2], [15, 0.06, 0.3], [-20, -0.05, 0.2]] }; // 最多 8 处（着色器里两组 vec4）
+export const POOLW_V40 = { x: -264, z: 27.5, rx: 7.5, rz: 6, wl: 7.6 };
+export const WFP = { old: false }; // 撒草时按 v40 的潭算（随机数序列不变，别处的草一簇不动），撒完再把落进新潭里的去掉
 const HILLW = [{ x: -264, z: 49, r: 13, h: 13, n: 6, lobes: [[0, 0, 0.8, 1.0], [-8, 2, 0.55, 0.75], [8, 3, 0.55, 0.7]] }]; // 石壁后面靠着的山        // 题“龍湫”的大石
 export const PADS3 = [
   { x: -231.5, z: -3.2, r: 7.2, y: 13, b: 4 },                   // 禪窩前的院子
@@ -297,7 +302,11 @@ export function ch3Ground(x, z, h0) {
   g -= 6 * smooth(-204, -209, x) * smooth(-227, -219, x) * smooth(-6.5, -12, z) * smooth(-36, -27, z);
   // v40 对岸：瀑布石壁后面的山、潭四周一圈平台（潭另由 POOLW 挖）
   g += lobedHeight(x, z, HILLW) * smooth(30, 38, z);
-  { const r = pondShape(x, z, POOLW); if (r < 2.4) g += (POOLW.wl + 1.0 - g) * smooth(2.4, 1.3, r); }
+  if (WFP.old) { const r = pondShape(x, z, POOLW); if (r < 2.4) g += (POOLW.wl + 1.0 - g) * smooth(2.4, 1.3, r); }
+  else { // v62 潭沿只往上抬、不压平：西边地势比水面低，抬到水面以上兜住水，往外五六米慢慢落回原地；东边坡本来就高，照旧从水边起坡
+    const P = POOLW, dm = pondDist(x, z, P);
+    if (dm < 7 && z > 11) { const T = P.wl + 0.7 + 0.08 * Math.max(0, dm); g = Math.max(g, T + (g - T) * Math.max(smooth(2.5, 7, dm), smooth(14, 11, z))); } // z < 14 不动：龍湫画境下缘看得到的土包顶（z 8–10）一点不变
+  }
   // 远处照旧（原来的远山）
   g += (Math.max(g, h0) - g) * smooth(-62, -95, z);
   // 龍湫岩洞里：洞底就是潭底（潭另由 POOL3 挖）
@@ -924,8 +933,21 @@ export function pondBackness(x, z) {
   const P = POND, dx = (x - P.x) / P.rx, dz = (z - P.z) / P.rz, l = Math.hypot(dx, dz) || 1;
   return smooth(0.05, 0.45, -dz / l);
 }
+// 潭形：归一化的离心距离（岸线 r = 1）。v62 P.lobes 让岸线有凸凹（水面着色器 water.js、后处理 art.js 用同一公式）
+export function pondLobeR(P, dx, dz) { // dx、dz 已按 rx、rz 归一
+  if (!P.lobes) return 1;
+  const th = Math.atan2(dz, dx); let R = 1;
+  for (const [c, a, w] of P.lobes) { let d = th - c * Math.PI / 180; d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI; R += a * Math.exp(-(d / w) * (d / w)); }
+  return R;
+}
 export function pondShape(x, z, P) {
-  const dx = (x - P.x) / P.rx, dz = (z - P.z) / P.rz; return Math.sqrt(dx * dx + dz * dz);
+  if (P === POOLW && WFP.old) P = POOLW_V40;
+  const dx = (x - P.x) / P.rx, dz = (z - P.z) / P.rz; return Math.sqrt(dx * dx + dz * dz) / pondLobeR(P, dx, dz);
+}
+// 离岸线（r = 1）的米数，沿离心方向量，岸里为负
+export function pondDist(x, z, P) {
+  const r = Math.max(pondShape(x, z, P), 1e-4), rho = Math.hypot(x - P.x, z - P.z);
+  return rho * (1 - 1 / r);
 }
 // 离最近一条溪的水平距离；x 是溪线上最近点的 x，wl 是那里的水面高，k 是第几条溪
 export function distToStream(x, z) {
@@ -1023,7 +1045,7 @@ export function terrainBase(x, z) {
     }
   }
   // 龍湫水池
-  for (const P of LAYOUT_V21.on ? [POOL] : [POOL3, POOLW]) { const r = pondShape(x, z, P); if (r < 1.6) { const bed = P.wl - 2 * (1 - r * r); h = r < 1 ? Math.min(h, bed + (P.wl + 0.5 - bed) * smooth(0.8, 1, r)) : Math.min(h, P.wl + 0.5 + (r - 1) * 5 + (h - P.wl) * smooth(1, 1.6, r)); } }
+  for (const P of LAYOUT_V21.on ? [POOL] : [POOL3, POOLW]) { const r = pondShape(x, z, P); if (r < 1.6) { const bed = P.wl - (P.dep ?? 2) * (1 - r * r); h = r < 1 ? Math.min(h, bed + (P.wl + 0.5 - bed) * smooth(1 - (P.shelf ?? 0.2), 1, r)) : Math.min(h, P.wl + 0.5 + (r - 1) * 5 + (h - P.wl) * smooth(1, 1.6, r)); } }
   // 曲溪河道
   if (x > 92 && x < 250) {
     const s = distToStream(x, z);
@@ -1088,7 +1110,8 @@ function foldKeep(x, z) { // 1：可以起褶；0：不动
   if (x > -206 && x < -34 && z < 14) k *= smooth(14, 20, z) + smooth(-200, -212, x) + smooth(-40, -28, x); // 第二章核心（超然亭、琪樹峡、磐玉隈都已照原画 1:1，不动）
   if (k <= 0) return 0;
   for (const Pd of PADS_NOW) { const r = Math.hypot(x - Pd.x, z - Pd.z); if (r < Pd.r + (Pd.b ?? 7) + 6) k *= smooth(Pd.r + (Pd.b ?? 7) + 1, Pd.r + (Pd.b ?? 7) + 6, r); }
-  for (const [P, R] of [[POND, 2.8], [POOL3, 2.4], [POOLW, 2.6]]) { const r = pondShape(x, z, P); if (r < R + 0.6) k *= smooth(R, R + 0.6, r); }
+  // v62 瀑布潭放大后仍在 v40 那圈不起褶的范围里，照旧按 v40 算（别处褶皱一道不动）
+  for (const [P, R] of [[POND, 2.8], [POOL3, 2.4], [POOLW_V40, 2.6]]) { const r = pondShape(x, z, P); if (r < R + 0.6) k *= smooth(R, R + 0.6, r); }
   for (const [cx, cz, r0, r1] of [[CAVE.x, CAVE.z, 16, 22], [MOYA3.x, MOYA3.z, 13, 18], [GROTTO3.x, GROTTO3.z, 10, 15], [PEAK4.x, PEAK4.z, 8, 12], [SIYANG4.x, SIYANG4.z - 8, 13, 18], [CHUPING.x, CHUPING.z, CHUPING.r + 8, CHUPING.r + 13], [CHAORAN.x, CHAORAN.z, 10, 14]]) {
     const r = Math.hypot(x - cx, z - cz); if (r < r1) k *= smooth(r0, r1, r);
   }

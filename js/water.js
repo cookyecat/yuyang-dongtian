@@ -3,6 +3,7 @@
 // 龍湫瀑布：三层水帘、跌水白沫、潭面水雾与不断外扩的落水涟漪。
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
+import { pondShape } from './world.js';
 
 const NOISE = /* glsl */`
   float hash12(vec2 p){ vec3 p3=fract(vec3(p.xyx)*.1031); p3+=dot(p3,p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
@@ -45,6 +46,7 @@ const pondShader = {
     color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null },
     time: { value: 0 }, ripples: { value: Array.from({ length: 6 }, () => new THREE.Vector4(0, 0, -99, 0)) },
     reflK: { value: 0.5 }, radius: { value: new THREE.Vector2(10, 8) }, center: { value: new THREE.Vector2() },
+    lobeC: { value: [new THREE.Vector4(), new THREE.Vector4()] }, lobeA: { value: [new THREE.Vector4(), new THREE.Vector4()] }, lobeW: { value: [new THREE.Vector4(1, 1, 1, 1), new THREE.Vector4(1, 1, 1, 1)] }, // v62 岸线凸凹（见 world.js pondLobeR）
     lightDir: { value: new THREE.Vector3(0, 1, 0) }, lightCol: { value: new THREE.Vector3() },
     lamps: { value: Array.from({ length: 8 }, () => new THREE.Vector3(0, 0, 0)) }, lampK: { value: 0 }, churn: { value: new THREE.Vector4(0, 0, 1, 0) },
   },
@@ -52,14 +54,16 @@ const pondShader = {
     uniform mat4 textureMatrix; attribute float aDep, aShore; varying vec4 vRefl; varying vec3 vW; varying float vDep, vShore;
     void main(){ vDep=aDep; vShore=aShore; vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; vRefl=textureMatrix*vec4(position,1.); gl_Position=projectionMatrix*viewMatrix*w; }`,
   fragmentShader: /* glsl */`
-    uniform sampler2D tDiffuse; uniform float time, reflK, lampK; uniform vec4 ripples[6]; uniform vec2 radius, center;
+    uniform sampler2D tDiffuse; uniform float time, reflK, lampK; uniform vec4 ripples[6]; uniform vec2 radius, center; uniform vec4 lobeC[2], lobeA[2], lobeW[2];
     uniform vec3 lightDir, lightCol; uniform vec3 lamps[8]; uniform vec4 churn;
     varying vec4 vRefl; varying vec3 vW; varying float vDep, vShore;
     ${NOISE}${WATER}${STROKES}
     void main(){
       vec2 p=vW.xz;
       // 离岸距离：0 岸边 → 1 潭心
-      vec2 e=(p-center)/radius; float r=length(e); float depth=smoothstep(1.05,.35,r);
+      vec2 e=(p-center)/radius; float r=length(e);
+      if(dot(lobeA[0],lobeA[0])+dot(lobeA[1],lobeA[1])>0.){ vec4 d0=atan(e.y,e.x)-lobeC[0], d1=atan(e.y,e.x)-lobeC[1]; d0-=6.2831853*floor((d0+3.1415927)/6.2831853); d1-=6.2831853*floor((d1+3.1415927)/6.2831853); r/=1.+dot(lobeA[0],exp(-(d0/lobeW[0])*(d0/lobeW[0])))+dot(lobeA[1],exp(-(d1/lobeW[1])*(d1/lobeW[1]))); } // v62 岸线凸凹
+      float depth=smoothstep(1.05,.35,r);
       float a=smoothstep(.0,.09,vDep)*(1.-smoothstep(1.03,1.06,r)); if(a<.004) discard;
       // 微波法线：两组慢慢错动的波
       float t=time;
@@ -114,7 +118,7 @@ const pondShader = {
 
 // 潭面网格：按潭底地形算每个点的水深和离岸距离（岸边留白、沿岸水线、水面淡出都靠它），岸上的三角形不要
 function pondGeometry(P, height) {
-  const W = P.rx * 1.07, H = P.rz * 1.07, st = Math.min(0.45, Math.max(0.3, W / 40)), nx = Math.ceil(2 * W / st), nz = Math.ceil(2 * H / st);
+  const RM = 1 + Math.max(0, ...(P.lobes || []).map((L) => L[1])), W = P.rx * 1.07 * RM, H = P.rz * 1.07 * RM, st = Math.min(0.45, Math.max(0.3, W / 40)), nx = Math.ceil(2 * W / st), nz = Math.ceil(2 * H / st);
   const pos = [], dep = [], shore = [], idx = [];
   const hAt = height || (() => P.wl - 2);
   for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) {
@@ -122,7 +126,7 @@ function pondGeometry(P, height) {
     const h = hAt(x, z), d = P.wl - h, gx = (hAt(x + 0.3, z) - hAt(x - 0.3, z)) / 0.6, gz = (hAt(x, z + 0.3) - hAt(x, z - 0.3)) / 0.6;
     pos.push(lx, ly, 0); dep.push(d); shore.push(Math.max(-1, Math.min(8, d / Math.max(0.06, Math.hypot(gx, gz)))));
   }
-  const n1 = nx + 1, wet = (k) => dep[k] > -0.25 && Math.hypot(pos[k * 3] / P.rx, pos[k * 3 + 1] / P.rz) < 1.09;
+  const n1 = nx + 1, wet = (k) => dep[k] > -0.25 && pondShape(P.x + pos[k * 3], P.z - pos[k * 3 + 1], P) < 1.09;
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
     const a = j * n1 + i, b = a + 1, c = a + n1, d = c + 1;
     if (wet(a) || wet(b) || wet(c) || wet(d)) idx.push(a, b, d, a, d, c);
@@ -147,7 +151,8 @@ export function createPond(P, { mobile = false, reflK = 0.55, height = null } = 
   }
   mesh.rotation.x = -Math.PI / 2; mesh.position.set(P.x, P.wl, P.z);
   const u = mesh.material.uniforms;
-  u.radius.value.set(P.rx, P.rz); u.center.value.set(P.x, P.z); u.lightDir = LIGHT.lightDir; u.lightCol = LIGHT.lightCol;
+  u.radius.value.set(P.rx, P.rz); u.center.value.set(P.x, P.z);
+  if (P.lobes) P.lobes.forEach(([c, a, w], i) => { const j = i >> 2, k = i & 3; u.lobeC.value[j].setComponent(k, c * Math.PI / 180); u.lobeA.value[j].setComponent(k, a); u.lobeW.value[j].setComponent(k, w); }); u.lightDir = LIGHT.lightDir; u.lightCol = LIGHT.lightCol;
   // v48 水边半透明淡出、不写深度：岸线顺着潭底地形走，不再是水平面和地形网格硬切出来的折线
   mesh.material.transparent = true; mesh.material.depthWrite = false; mesh.renderOrder = 1;
   mesh.userData.ripples = u.ripples.value;
