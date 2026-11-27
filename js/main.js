@@ -5,7 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PATH, PATH_V29, ZONES, STAGES, PEOPLE, ACTIONS } from './data.js';
 import { MOYA, CAVE, caveLocal, inCave, buildTerrainGeometry, buildTerrainPatch, terrainHeight, surfaceTop, groundHeight, waterLevel, pathAt, slopeAt, blocked, smooth, rand, fbm,
   POND, POOL, STREAM, STREAM2, PADS, COLLIDERS, addSurface, WORLD, distToStream, pondShape, LOBED, FORE, foreMound, MASSIF, QN_STAIRS, massifAt, distToLine, LAYOUT_V21, DGL, daguanWallTop, CH2, PIAO, PANYU, CHAORAN, STAIRS2, MASSIF2, rocks2At, withOldPath, useOldPath, enterV33, exitV33, S56, pathOn, pathV33At, gorge6,
-  CH3, ZEN3, ZEN3B, GY3, POLE3, MOYA3, POOL3, GROTTO3, LONGQIU3, PADS_NOW, POOLW, CHUPING, back8,
+  CH3, ZEN3, ZEN3B, GY3, POLE3, MOYA3, POOL3, GROTTO3, LONGQIU3, PADS_NOW, POOLW, WFP, pondDist, CHUPING, back8,
   CH4, XI4, PEAK4, SIYANG4, QD4, STREAM4, gorgeAt4, FOLD, southCrests } from './world.js';
 import { PAL, loadTex, terrainMaterial, rockMaterial, cliffMaterial, foliageMaterial, flatMaterial,
   cloudMaterial, leafClumpTexture, tuftTexture, pineTexture, bambooTexture, cloudTexture, createPost } from './art.js';
@@ -114,7 +114,7 @@ const terrain5 = new THREE.Mesh(buildTerrainPatch(THREE), terrain.material); sce
 const pondMesh = createPond(POND, { mobile: MOBILE, height: terrainHeight }); scene.add(pondMesh); timed.push(pondMesh.material);
 const poolMesh = createPond(POOL3, { mobile: true, height: terrainHeight }); scene.add(poolMesh); timed.push(poolMesh.material); // v39 龍湫潭在岩洞里（洞里暗，不做实时倒影）
 const wfPool = createPond(POOLW, { mobile: MOBILE, reflK: 0.45, height: terrainHeight }); scene.add(wfPool); timed.push(wfPool.material); // v40 对岸瀑布下的深潭
-[POND, POOL3, POOLW].forEach((P, i) => { post.mat.uniforms.ponds.value[i].set(P.x, P.z, P.rx, P.rz); post.mat.uniforms.pondY.value[i] = P.wl; }); // v48 潭岸不勾墨线（见 art.js）
+[POND, POOL3, POOLW].forEach((P, i) => { const U = post.mat.uniforms; U.ponds.value[i].set(P.x, P.z, P.rx, P.rz); U.pondY.value[i] = P.wl; if (P.lobes) P.lobes.forEach(([c, a, w], k) => { const j = i * 2 + (k >> 2); U.pondLC.value[j].setComponent(k & 3, c * Math.PI / 180); U.pondLA.value[j].setComponent(k & 3, a); U.pondLW.value[j].setComponent(k & 3, w); }); }); // v48 潭岸不勾墨线（见 art.js）
 // 曲溪、隅九桥溪：沿溪线铺水带。pts 的 y 是水面高（null 时按游线高减 0.45）
 function streamBand(pts, hw, wlOf) {
   const curve = new THREE.CatmullRomCurve3(pts), L = curve.getLength(), n = Math.ceil(L / 1.2), pos = [], idx = [], uvs = [], slp = [];
@@ -663,7 +663,7 @@ const TUFT60 = []; // v60 龍湫画境下半石坎脚下的苔草位置
 const WF = (() => {
   const P = POOLW, X = P.x, H = (x, z) => terrainHeight(x, z), RES = MOBILE ? 14 : 20, i0 = PAN7.length;
   const blk = (x, z, w, d, y0, top, o = {}) => {
-    if (o.col !== 0) for (const a of [-0.5, 0, 0.5]) for (const b of [-0.5, 0, 0.5]) y0 = Math.min(y0, H(x + a * w, z + b * d) - 0.5);
+    if (o.col !== 0) { for (const a of [-0.5, 0, 0.5]) for (const b of [-0.5, 0, 0.5]) y0 = Math.min(y0, H(x + a * w, z + b * d) - 0.5); y0 = Math.max(y0, P.wl - 1.2); } // v62 潭伸到崖脚下：石脚没进水里一米多就够，不跟着潭底往下拉长
     placeBlock(PAN7, H, x, z, w, d, top - y0, o.ry ?? 0, o.seed ?? Math.round(x * 13 - z * 7), { res: RES, ...o, y0, aO: true }); if (o.col !== 0) circleCol(x, z, o.col ?? Math.min(w, d) * 0.8); };
   const GO = 0.95;
   blk(X, 37.2, 7, 5, 8, 27, { craggy: true, tone: GO, ry: 0.05 });                       // 正中出水的一块
@@ -697,6 +697,14 @@ const WF = (() => {
   for (let k = 1; k <= 8; k++) { const q = path[path.length - k]; q.foam = Math.max(q.foam, 1 - k / 9); }
   path.forEach((q, i) => { q.w = (1.5 + 1.4 * Math.pow(i / path.length, 0.7)) * (q.fall > 0 ? 1 : 1.15); });
   const fall = createWaterfall(path, impacts, { mobile: MOBILE }); fall.position.x = X; fall.rotation.y = Math.PI; scene.add(fall);
+  // v62 潭放大后的岸石：崖脚两角各一块半没在水里，右前小岬一大一小，左前湾里一块平石；不撒，成组。
+  // 高度从水面或岸地（取高的）量起，脚埋到四周最低处以下（水里的没进水一米）
+  for (const [x, z, w, d, k, tone, ry, sq] of [[-275.2, 30.6, 1.6, 1.4, 1.6, 0.9, 0.3, 0.6], [-273.3, 27.7, 0.9, 0.8, 0.5, GO, -0.4, 0.5], [-253.6, 30.4, 1.3, 1.2, 1.3, 0.9, -0.5, 0.6],
+    [-256.2, 19.0, 1.4, 1.1, 0.9, GO, 0.6, 0.55], [-258.4, 18.0, 0.8, 0.7, 0.45, 0.9, 0.2, 0.5], [-270.4, 17.4, 1.0, 0.7, 0.3, 0.9, 1.1, 0.4]]) {
+    let lo = Infinity; for (const a of [-0.8, 0, 0.8]) for (const b of [-0.8, 0, 0.8]) lo = Math.min(lo, H(x + a * w, z + b * d));
+    blk(x, z, w, d, Math.max(P.wl - 1.2, lo - 0.5), Math.max(P.wl, H(x, z)) + k, { craggy: true, tone, ry, ...(sq ? { squat: sq } : {}), col: 0 });
+    if (w > 1) circleCol(x, z, Math.min(w, d) * 0.7);
+  }
   const W = (v) => new THREE.Vector3(X, v.y, -v.z);
   return { fall, top: W(path[0].p), bottom: W(last) };
 })();
@@ -1226,7 +1234,7 @@ exitV33();
   const r = rand(3939), add = (t, x, z, s, tint, y, force) => {
     if (!force && (Math.abs(z - pathAt(x).z) < 3 || PADS_NOW.some((P) => Math.hypot(x - P.x, z - P.z) < P.r + 0.6))) return false;
     if (Math.abs(x - GROTTO3.x) < GROTTO3.hw + 1 && z > GROTTO3.back - 1 && z < GROTTO3.front + 4) return false; // 洞里、洞口
-    if (pondShape(x, z, POOLW) < 1.3) return false;
+    if (pondDist(x, z, POOLW) < 1) return false; // v62 潭放大，按离岸米数判
     const T = [x, z, s, r() * 100, 1]; if (tint || y != null) T.push(tint || 1); if (y != null) T.push(y); TREES[t].push(T); return true;
   };
   // 禪窩右前：一株赭干高松、一株墨绿大叶杂树；屋后一丛松
@@ -1255,7 +1263,7 @@ exitV33();
   // 洞前、龍湫石前两丛矮的墨绿杂树（只遮到洞口下沿）
   add('broad', -268.2, 2.4, 0.6, 0.7); add('broad', -262.6, 1.6, 0.55, 0.7); add('dwarfpine', -265.4, 2.8, 1.0, 0.7);
   // v40 对岸瀑布：崖顶山上几株松，潭两边各一丛杂树
-  for (const [x, z, s, t] of [[-262, 48, 1.1, 'pine'], [-268.5, 49.5, 1.0, 'pine'], [-256.5, 47, 0.95, 'pine'], [-273, 46, 1.0, 'fir'], [-253, 45.5, 1.05, 'fir'], [-275.5, 30.5, 0.9, 'broad'], [-252.5, 31.5, 0.85, 'broad'], [-277, 34, 0.8, 'shrub'], [-251, 35, 0.8, 'shrub']]) add(t, x, z, s, 0.8);
+  for (const [x, z, s, t] of [[-262, 48, 1.1, 'pine'], [-268.5, 49.5, 1.0, 'pine'], [-256.5, 47, 0.95, 'pine'], [-273, 46, 1.0, 'fir'], [-253, 45.5, 1.05, 'fir'], [-278.5, 29.5, 0.9, 'broad'], [-250.2, 31.6, 0.85, 'broad'], [-277, 34, 0.8, 'shrub'], [-251, 35, 0.8, 'shrub']]) add(t, x, z, s, 0.8);
   add('dwarfpine', -266.5, 42.6, 1.1, 0.72, 30.4); add('dwarfpine', -258.6, 42.6, 0.9, 0.72, 27.9);
   // 前景坡包上的灌丛
   for (const [x, z] of [[-273, 1.5], [-266, 4], [-257, 5], [-248, 7], [-242, 8.5], [-214, 10]]) for (let k = 0; k < 3; k++) add('shrub', x + (r() - 0.5) * 4, z + (r() - 0.5) * 3, 0.8 + r() * 0.5);
@@ -1455,7 +1463,7 @@ plantTrees('redshrub', [75, 76], [tex.clump[0], tex.clump[3]], { as: 'shrub', hu
   const N = MOBILE ? 3800 : 7000;
   const lm = new THREE.InstancedMesh(geo, fm, N); lm.frustumCulled = false; lm.layers.set(1);
   const r = rand(123), items = [];
-  S56.off = true; FOLD.off = true; // v56 超然亭对面新起的山不算（草按原来的地形撒，别处的草一簇不动），撒完再落到新地形上；v57 山体褶皱同样
+  S56.off = true; FOLD.off = true; WFP.old = true; // v62 瀑布潭按 v40 的大小撒；v56 超然亭对面新起的山不算（草按原来的地形撒，别处的草一簇不动），撒完再落到新地形上；v57 山体褶皱同样
   for (let i = 0; i < N * 2 && items.length < N; i++) {
     const cat = i % 9, inSlice = cat < 5, ch1 = cat === 5 || cat === 6; // 玉女潭密，第一章草坡次之，其余沿游线稀疏
     const x = inSlice ? -12 + r() * 104 : ch1 ? 94 + r() * 250 : OLDX0 + r() * (WORLD.x1 - OLDX0);
@@ -1467,7 +1475,8 @@ plantTrees('redshrub', [75, 76], [tex.clump[0], tex.clump[3]], { as: 'shrub', hu
     const m = new THREE.Matrix4().compose(new THREE.Vector3(x, terrainHeight(x, z) - 0.05, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, r() * 3, 0)), new THREE.Vector3(s, s * (0.7 + r() * 0.6), s));
     const k = 0.85 + r() * 0.3; items.push({ x, z, m, c: new THREE.Color(k, k, k * 0.95) });
   }
-  S56.off = false; FOLD.off = false; for (const it of items) it.m.elements[13] = terrainHeight(it.x, it.z) - 0.05;
+  S56.off = false; FOLD.off = false; WFP.old = false; for (let i = items.length - 1; i >= 0; i--) if (pondDist(items[i].x, items[i].z, POOLW) < 0.3) items.splice(i, 1); // v62 落进放大的瀑布潭里的去掉
+  for (const it of items) it.m.elements[13] = terrainHeight(it.x, it.z) - 0.05;
   lm.setColorAt(0, new THREE.Color(1, 1, 1));
   treeSets.push({ tm: null, lm, items, r: MOBILE ? 50 : 85 }); scene.add(lm);
 }
@@ -2133,6 +2142,7 @@ function updateNPC(f, dt) {
   if (state.ctrl && state.ctrl.root.position.distanceTo(f.root.position) < 5) f.look = state.ctrl.root.position; else if (!f.action) f.look = null;
 }
 
+const BOAT = { dx: -0.6, dz: -1.6, rx: 7.2, rz: 3.9, k: 0.6 }; // v62 潭放大，船绕的圈跟着放大（v40 是 4.2×2.2），角速度按周长收，船速照旧；圈后沿离落水处三米多
 let boatT = 0, fallRip = 0, fallI = 0, cloudN = 0, floatLamps = null;
 function frame() {
   window.__frames = (window.__frames || 0) + 1;
@@ -2225,8 +2235,8 @@ function frame() {
   for (const c of cranes) c.update(dt, terrainHeight);
   birds.update(t, camera);
   if (cloudN++ % 8 === 0) post.setClouds(CLOUD_L, camera);
-  boatT += dt * 0.12;
-  boat.position.set(POOLW.x + Math.sin(boatT) * 4.2, POOLW.wl + 0.05 + Math.sin(t * 1.3) * 0.04, POOLW.z - 0.7 + Math.cos(boatT) * 2.2); boat.rotation.y = Math.atan2(Math.sin(boatT) * 2.2, Math.cos(boatT) * 4.2) + Math.PI; boat.rotation.z = Math.sin(t * 1.1) * 0.03; // v40 在对岸瀑布潭里绕圈，船头朝前；圈往前收，离瀑布落水处留出两米多
+  boatT += dt * 0.12 * BOAT.k;
+  boat.position.set(POOLW.x + BOAT.dx + Math.sin(boatT) * BOAT.rx, POOLW.wl + 0.05 + Math.sin(t * 1.3) * 0.04, POOLW.z + BOAT.dz + Math.cos(boatT) * BOAT.rz); boat.rotation.y = Math.atan2(Math.sin(boatT) * BOAT.rz, Math.cos(boatT) * BOAT.rx) + Math.PI; boat.rotation.z = Math.sin(t * 1.1) * 0.03; // v40 在对岸瀑布潭里绕圈，船头朝前（v62 圈的大小、位置见 BOAT）
   { // 岩洞里原画的船：泊在洞口水里轻轻晃，船尾的人慢慢撑篙
     boat2.position.set(-269.6 + Math.sin(t * 0.13) * 0.5, POOL3.wl + 0.05 + Math.sin(t * 1.1) * 0.03, -21.2); boat2.rotation.z = Math.sin(t * 0.9) * 0.025;
     boat2.userData.kids.forEach((k) => { k.update(dt, t); if (Math.random() < dt * 0.05) k.play('talk', 2.5); });
@@ -2236,7 +2246,7 @@ function frame() {
   { const c = figs.get('chuan'); c.update(dt, t); if (!c.controlled) { // 撑篙：举篙、插水、推船，一下一下
     const ph = (t * 0.55) % 1, push = ph < 0.6 ? ph / 0.6 : 1 - (ph - 0.6) / 0.4;
     c.arms[1].rotation.x = -2.2 + push * 1.1; c.arms[0].rotation.x = -1.6 + push * 0.9; c.arms[0].rotation.z = -0.5; c.hands.forEach((h) => { h.rotation.x = -0.15; h.rotation.y = 0; });
-    c.torso.rotation.x = 0.1 + push * 0.35; c.torso.rotation.y = -0.4; boatT += dt * 0.06 * (ph < 0.6 ? 1.6 : 0.3); } }
+    c.torso.rotation.x = 0.1 + push * 0.35; c.torso.rotation.y = -0.4; boatT += dt * 0.06 * BOAT.k * (ph < 0.6 ? 1.6 : 0.3); } }
   for (const m of timed) m.uniforms.time.value = t;
   // 落水处不断外扩的涟漪（占用后两个槽位）；两面潭水只让近的那面实时倒影
   WF.fall.userData.update(t);

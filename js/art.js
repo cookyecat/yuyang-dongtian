@@ -930,7 +930,7 @@ export function createPost(renderer, { samples = 0, mistSteps = 14, clouds = 16,
       gMul: { value: new THREE.Vector3(1, 1, 1) }, gAdd: { value: new THREE.Vector3() }, gSat: { value: 1 },
       nightK: { value: 0 }, warmK: { value: 0 }, dawnK: { value: 0 }, lampK: { value: 0 },
       sunD2: { value: new THREE.Vector3(0, 1, 0) }, moonD: { value: new THREE.Vector3(0, -1, 0) },
-      ponds: { value: Array.from({ length: 3 }, () => new THREE.Vector4(0, 0, 1, 1)) }, pondY: { value: [-999, -999, -999] }, // v48 三面潭水（x, z, rx, rz）和水面高：岸沿不勾墨线
+      ponds: { value: Array.from({ length: 3 }, () => new THREE.Vector4(0, 0, 1, 1)) }, pondY: { value: [-999, -999, -999] }, pondLC: { value: Array.from({ length: 6 }, () => new THREE.Vector4()) }, pondLA: { value: Array.from({ length: 6 }, () => new THREE.Vector4()) }, pondLW: { value: Array.from({ length: 6 }, () => new THREE.Vector4(1, 1, 1, 1)) }, // v62 岸线凸凹（每面潭两组） // v48 三面潭水（x, z, rx, rz）和水面高：岸沿不勾墨线
       lp: { value: Array.from({ length: lights }, () => new THREE.Vector4()) }, lc: { value: Array.from({ length: lights }, () => new THREE.Vector4()) }, nL: { value: 0 },
     },
     defines: { MIST_STEPS: mistSteps, CLOUDS: clouds, CLOUD_STEPS: cloudSteps, LIGHTS: lights },
@@ -938,7 +938,7 @@ export function createPost(renderer, { samples = 0, mistSteps = 14, clouds = 16,
     vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
     fragmentShader: /* glsl */`
       uniform sampler2D tColor, tDepth; uniform float near, far, time, lineW, fogK, grain; uniform vec2 res;
-      uniform vec4 ponds[3]; uniform float pondY[3]; uniform mat4 projInv, camWorld; uniform vec3 silk, silkSky; varying vec2 vUv;
+      uniform vec4 ponds[3], pondLC[6], pondLA[6], pondLW[6]; uniform float pondY[3]; uniform mat4 projInv, camWorld; uniform vec3 silk, silkSky; varying vec2 vUv;
       uniform sampler2D tHeight; uniform vec4 hInfo; uniform vec2 hRange; uniform float mistK;
       uniform vec3 gMul, gAdd, sunD2, moonD; uniform float gSat, nightK, warmK, dawnK, lampK;
       uniform vec4 lp[LIGHTS]; uniform vec4 lc[LIGHTS]; uniform int nL;
@@ -1002,7 +1002,9 @@ export function createPost(renderer, { samples = 0, mistSteps = 14, clouds = 16,
         edge *= 1.-smoothstep(150.,420.,dist); // 远山也留墨线
         edge *= .55 + .45*vnoise(vUv*res*.012+time*.0); // 飞白
         // v48 潭岸：地形网格在岸沿折出一圈多边形的硬线，这里不勾；岸线交给水面自己的留白和水线
-        for(int i=0;i<3;i++){ float pr=length((wp.xz-ponds[i].xy)/ponds[i].zw); edge *= 1.-.92*smoothstep(.8,.9,pr)*smoothstep(1.32,1.2,pr)*smoothstep(1.4,.9,abs(wp.y-pondY[i]-.3)); }
+        for(int i=0;i<3;i++){ vec2 pe=(wp.xz-ponds[i].xy)/ponds[i].zw; float pr=length(pe);
+          if(pr<1.8 && dot(pondLA[i*2],pondLA[i*2])+dot(pondLA[i*2+1],pondLA[i*2+1])>0.){ vec4 d0=atan(pe.y,pe.x)-pondLC[i*2], d1=atan(pe.y,pe.x)-pondLC[i*2+1]; d0-=6.2831853*floor((d0+3.1415927)/6.2831853); d1-=6.2831853*floor((d1+3.1415927)/6.2831853); pr/=1.+dot(pondLA[i*2],exp(-(d0/pondLW[i*2])*(d0/pondLW[i*2])))+dot(pondLA[i*2+1],exp(-(d1/pondLW[i*2+1])*(d1/pondLW[i*2+1]))); } // v62 岸线凸凹
+          edge *= 1.-.92*smoothstep(.8,.9,pr)*smoothstep(1.32,1.2,pr)*smoothstep(1.4,.9,abs(wp.y-pondY[i]-.3)); }
         // —— 绢色雾与山间云气 ——
         float fog = 1.-exp(-pow(dist*.003*fogK, 1.35));
         fog *= 1. - .3*smoothstep(25., 90., wp.y);                                   // 高处的山头透出来，远眺看得清
